@@ -633,9 +633,33 @@ function initEventListeners() {
         if (file) {
             const reader = new FileReader();
             reader.onload = (f) => {
-                currentState.photoBase64 = f.target.result;
-                const preview = document.getElementById('photo-preview');
-                preview.innerHTML = `<img src="${f.target.result}" style="width:100%; border-radius:20px;">`;
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 최대 가로 크기 800px로 제한 (용량 최적화)
+                    const maxW = 800;
+                    let w = img.width;
+                    let h = img.height;
+                    
+                    if (w > maxW) {
+                        h = h * (maxW / w);
+                        w = maxW;
+                    }
+                    
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    
+                    // JPEG 형식으로 화질 0.5(50%) 압축 (최저 용량 지향)
+                    const optimizedData = canvas.toDataURL('image/jpeg', 0.5);
+                    
+                    currentState.photoBase64 = optimizedData;
+                    const preview = document.getElementById('photo-preview');
+                    preview.innerHTML = `<img src="${optimizedData}" style="width:100%; border-radius:20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">`;
+                };
+                img.src = f.target.result;
             };
             reader.readAsDataURL(file);
         }
