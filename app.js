@@ -158,6 +158,157 @@ function startAssessment() {
     switchPhase('step-1');
 }
 
+// --- History System Functions ---
+
+function saveToHistory(payload) {
+    try {
+        const history = JSON.parse(localStorage.getItem('kosha_history') || '[]');
+        const newEntry = {
+            ...payload,
+            id: Date.now(),
+            timestamp: new Date().toLocaleString('ko-KR')
+        };
+        // 최근 20건만 유지
+        history.unshift(newEntry);
+        if (history.length > 20) history.pop();
+        localStorage.setItem('kosha_history', JSON.stringify(history));
+    } catch (e) {
+        console.error("History Save Error:", e);
+    }
+}
+
+function viewHistory() {
+    switchPhase('step-history');
+    renderHistoryList();
+}
+
+function renderHistoryList() {
+    const container = document.getElementById('history-list-container');
+    const detailArea = document.getElementById('history-detail-container');
+    if (!container || !detailArea) return;
+
+    // 초기 상태 리셋
+    container.style.display = 'block';
+    detailArea.style.display = 'none';
+
+    const history = JSON.parse(localStorage.getItem('kosha_history') || '[]');
+    
+    if (history.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:3rem 1rem; color:#64748b;">
+                <i data-lucide="info" style="width:40px; height:40px; margin-bottom:1rem; opacity:0.3;"></i>
+                <p>제출된 내역이 없습니다.</p>
+            </div>
+        `;
+        initLucide();
+        return;
+    }
+
+    container.innerHTML = history.map((entry, index) => `
+        <div class="history-item-card" onclick="showHistoryDetail(${index})">
+            <div class="history-info">
+                <span class="historical-date">${entry.timestamp}</span>
+                <span class="historical-title">${entry.department} | ${entry.task}</span>
+                <span class="historical-subtitle">점검자: ${entry.worker}</span>
+            </div>
+            <i data-lucide="chevron-right" class="history-arrow"></i>
+        </div>
+    `).join('');
+    initLucide();
+}
+
+function showHistoryDetail(index) {
+    const history = JSON.parse(localStorage.getItem('kosha_history') || '[]');
+    const entry = history[index];
+    if (!entry) return;
+
+    const listArea = document.getElementById('history-list-container');
+    const detailArea = document.getElementById('history-detail-container');
+    const content = document.getElementById('report-view-content');
+
+    listArea.style.display = 'none';
+    detailArea.style.display = 'block';
+    
+    content.innerHTML = generateReportHTML(entry);
+    initLucide();
+}
+
+function closeHistoryDetail() {
+    const listArea = document.getElementById('history-list-container');
+    const detailArea = document.getElementById('history-detail-container');
+    listArea.style.display = 'block';
+    detailArea.style.display = 'none';
+}
+
+function getScoreBadge(score) {
+    let cls = 'badge-low';
+    if (score >= 13) cls = 'badge-critical';
+    else if (score >= 9) cls = 'badge-high';
+    else if (score >= 4) cls = 'badge-med';
+    return `<span class="report-badge ${cls}">${score}</span>`;
+}
+
+function generateReportHTML(data) {
+    const logs = data.logs || [];
+    return `
+        <div class="report-view-container">
+            <table class="report-table">
+                <tr>
+                    <th colspan="7" class="table-header-main">작업 안전점검 및 위험성평가표</th>
+                </tr>
+                <tr>
+                    <th>부서명</th>
+                    <td colspan="2">${data.department}</td>
+                    <th>작업일시</th>
+                    <td colspan="3">${data.timestamp}</td>
+                </tr>
+                <tr>
+                    <th>작업명</th>
+                    <td colspan="2">${data.task}</td>
+                    <th>점검자</th>
+                    <td colspan="3">${data.worker}</td>
+                </tr>
+                <tr>
+                    <th rowspan="2">위험요인 (Hazard)</th>
+                    <th rowspan="2">안전조치 이행내역 (현재)</th>
+                    <th colspan="2">현재 위험도</th>
+                    <th rowspan="2">개선대책 및 잔류 위험성</th>
+                    <th colspan="2">잔류 위험도</th>
+                </tr>
+                <tr>
+                    <th>강도</th>
+                    <th>빈도</th>
+                    <th>강도</th>
+                    <th>빈도</th>
+                </tr>
+                ${logs.map(log => `
+                    <tr>
+                        <td style="text-align:left;">${log.hazard}</td>
+                        <td style="text-align:left;">${log.current_checked.replace(/\n/g, '<br>')}</td>
+                        <td>${log.current_severity}</td>
+                        <td>${log.current_frequency} / ${getScoreBadge(log.current_score)}</td>
+                        <td style="text-align:left;">${log.improvements_checked.replace(/\n/g, '<br>')}</td>
+                        <td>${log.residual_severity}</td>
+                        <td>${log.residual_frequency} / ${getScoreBadge(log.residual_score)}</td>
+                    </tr>
+                `).join('')}
+                <tr>
+                    <th colspan="3">현장 점검 사진</th>
+                    <th colspan="4">점검자 서명</th>
+                </tr>
+                <tr>
+                    <td colspan="3">
+                        ${data.photo ? `<img src="${data.photo}" class="report-image">` : '사진 없음'}
+                    </td>
+                    <td colspan="4">
+                        ${data.signature ? `<img src="${data.signature}" class="report-signature">` : '서명 없음'}
+                    </td>
+                </tr>
+            </table>
+        </div>
+    `;
+}
+
 function nextStep(step) {
     if (step === 2) {
         const worker = document.getElementById('worker-input').value.trim();
@@ -800,6 +951,9 @@ async function submitLog() {
             body: JSON.stringify(payload),
             headers: { 'Content-Type': 'text/plain' }
         });
+
+        // 3. 로컬 내역 저장 추가
+        saveToHistory(payload);
 
         // 전송 완료 안내 (no-cors 특성상 성공 가정)
         setTimeout(() => {

@@ -58,6 +58,12 @@
                         </div>
                         <span>위험성평가</span>
                     </div>
+                    <div class="grid-card" onclick="viewHistory()">
+                        <div class="icon-box color-indigo">
+                            <i data-lucide="history"></i>
+                        </div>
+                        <span>제출 내역<br>확인</span>
+                    </div>
                     <div class="grid-card">
                         <div class="icon-box color-blue">
                             <i data-lucide="construction"></i>
@@ -201,6 +207,30 @@
                     <button class="btn btn-secondary" onclick="prevStep(3)">이전</button>
                 </div>
             </section>
+
+            <!-- Phase: Submission History -->
+            <section id="step-history" class="phase">
+                <div class="section-header">
+                    <h2>제출 내역 확인</h2>
+                    <p>최근 기기에서 제출된 점검 리스트입니다.</p>
+                </div>
+                
+                <div id="history-list-container" class="history-list-area">
+                    <!-- Dynamic List -->
+                </div>
+
+                <div id="history-detail-container" class="history-detail-area" style="display: none;">
+                    <div class="report-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="closeHistoryDetail()">목록으로 돌아가기</button>
+                    </div>
+                    <div id="report-view-content"></div>
+                </div>
+
+                <div class="btn-container">
+                    <button class="btn btn-secondary" onclick="goHome()">메인 화면으로</button>
+                </div>
+            </section>
+
             </main>
 
             <!-- Bottom Navigation -->
