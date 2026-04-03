@@ -50,57 +50,48 @@
                     </div>
                 </div>
 
-                <!-- 제출내력 확인 서브 배너 -->
-                <div class="history-banner" onclick="viewHistory()">
-                    <div class="hb-content">
-                        <div class="hb-icon">
-                            <i data-lucide="history"></i>
-                        </div>
-                        <div class="hb-text">
-                            <h3>제출내역 확인</h3>
-                            <p>과거에 작성한 위험성평가표를 조회합니다.</p>
-                        </div>
-                    </div>
-                    <div class="hb-arrow">
-                        <i data-lucide="chevron-right"></i>
-                    </div>
-                </div>
+                <!-- (통합 배너 제거됨 - 그리드 메뉴 내부로 이동) -->
                 
-                <!-- Doing Grid Menu -->
+                <!-- Doing Grid Menu (9 items) -->
                 <div class="doing-grid">
-                    <!-- Grid items will start from here -->
-                    <div class="grid-card">
+                    <div class="grid-card" onclick="startAssessment()">
                         <div class="icon-box color-blue">
+                            <i data-lucide="shield-alert"></i>
+                        </div>
+                        <span>위험성<br>평가</span>
+                    </div>
+                    <div class="grid-card">
+                        <div class="icon-box color-cyan">
                             <i data-lucide="construction"></i>
                         </div>
                         <span>산업안전<br>보건법령</span>
                     </div>
                     <div class="grid-card">
-                        <div class="icon-box color-cyan">
+                        <div class="icon-box color-purple">
                             <i data-lucide="clock"></i>
                         </div>
                         <span>작업<br>중지권</span>
                     </div>
                     <div class="grid-card">
-                        <div class="icon-box color-purple">
+                        <div class="icon-box color-orange">
                             <i data-lucide="users"></i>
                         </div>
                         <span>종사자<br>의견</span>
                     </div>
                     <div class="grid-card">
-                        <div class="icon-box color-orange">
+                        <div class="icon-box color-pink-light">
                             <i data-lucide="search"></i>
                         </div>
                         <span>아차<br>사고</span>
                     </div>
                     <div class="grid-card">
-                        <div class="icon-box color-pink-light">
+                        <div class="icon-box color-blue-light">
                             <i data-lucide="git-branch"></i>
                         </div>
                         <span>비상대응<br>매뉴얼</span>
                     </div>
                     <div class="grid-card">
-                        <div class="icon-box color-blue-light">
+                        <div class="icon-box color-teal">
                             <i data-lucide="folder"></i>
                         </div>
                         <span>SOP<br>표준작업절차</span>
@@ -109,57 +100,49 @@
                         <div class="icon-box color-green">
                             <i data-lucide="monitor"></i>
                         </div>
-                        <span>정기안전<br>보건교육</span>
+                        <span>PTW<br>작업허가서</span>
                     </div>
                     <div class="grid-card">
-                        <div class="icon-box color-teal">
-                            <i data-lucide="book"></i>
+                        <div class="icon-box color-orange-light">
+                            <i data-lucide="users-round"></i>
                         </div>
-                        <span>법정<br>교육</span>
+                        <span>TBM</span>
                     </div>
                 </div>
             </section>
 
-            <!-- Phase 1: User & Task Selection -->
+
+            <!-- Phase 1: User & Task Selection (Banner Style) -->
             <section id="step-1" class="phase">
-                <div class="section-header">
-                    <h2>근로자 및 작업 선택</h2>
-                    <p>본인 이름과 오늘 수행할 작업을 입력하세요.</p>
+                <div class="section-header" id="step1-header">
+                    <h2>부서 선택</h2>
+                    <p>현재 소속된 부서를 선택하세요.</p>
                 </div>
-                <div class="form-group ui-group dropdown-container">
-                    <label class="ui-label">근로자 이름</label>
-                    <input type="text" id="worker-input" class="ui-input" placeholder="이름을 입력하거나 선택하세요" autocomplete="off">
-                    <div id="worker-dropdown" class="custom-dropdown"></div>
+                
+                <div id="selection-container" class="selection-banner-list" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- JS에서 동적으로 부서/작업 배너 생성 -->
                 </div>
-                <!-- User Info Removed -->
-                <div class="form-group ui-group dropdown-container">
-                    <label class="ui-label">부서명</label>
-                    <input type="text" id="task-select" class="ui-input" placeholder="부서명을 선택하거나 입력하세요" autocomplete="off">
-                    <div id="dept-dropdown" class="custom-dropdown"></div>
-                </div>
-                <div class="btn-container adaptive">
-                    <button class="btn btn-primary main-action-btn" onclick="nextStep(2)">위험성평가 실시 <i data-lucide="play"></i></button>
+
+                <div class="btn-container adaptive" id="step1-home-btn" style="margin-top: 2rem;">
                     <button class="btn btn-secondary" onclick="goHome()">취소 및 홈으로</button>
                 </div>
             </section>
 
-            <!-- Phase 2: Risk Checklist -->
+            <!-- Phase 2: Risk Checklist (Sequential) -->
             <section id="step-2" class="phase">
                 <div class="section-header">
-                    <h2>위험 요인 및 대책 확인</h2>
+                    <h2 id="step2-title">위험 요인 및 대책 확인</h2>
                 </div>
-                <!-- Dynamic Task Selection -->
-                <div class="form-group ui-group dropdown-container" id="task-selection-area">
-                    <label class="ui-label">작업명 선택</label>
-                    <input type="text" id="step2-task-select" class="ui-input" placeholder="작업명을 선택하거나 입력하세요" autocomplete="off">
-                    <div id="step2-task-dropdown" class="custom-dropdown"></div>
+
+                <!-- Worker Name Input (Integrated) -->
+                <div class="worker-input-card" style="background:white; border-radius:20px; padding:1.2rem; border:1px solid #e2e8f0; margin-bottom:1.5rem;">
+                    <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">점검자 성명</label>
+                    <div class="form-group dropdown-container" style="margin-bottom:0;">
+                        <input type="text" id="worker-input" class="ui-input" style="height:48px;" placeholder="성명을 입력하세요" autocomplete="off">
+                        <div id="worker-dropdown" class="custom-dropdown"></div>
+                    </div>
                 </div>
-                <!-- NEW: Dynamic Work Step Selection -->
-                <div class="form-group ui-group dropdown-container" id="step-selection-area">
-                    <label class="ui-label">작업단계 선택</label>
-                    <input type="text" id="step2-step-select" class="ui-input" placeholder="작업단계를 선택하거나 입력하세요" autocomplete="off">
-                    <div id="step2-step-dropdown" class="custom-dropdown"></div>
-                </div>
+                
                 <div class="checklist" id="risk-checklist"></div>
 
                 <!-- Incident Reference Card (Conditional) -->
@@ -168,48 +151,60 @@
                         <i data-lucide="alert-triangle"></i>
                         <span>유사 사고 사례 (Incident Case)</span>
                     </div>
-                    <div class="incident-content" id="incident-content">
-                        <!-- Loaded dynamically -->
-                    </div>
+                    <div class="incident-content" id="incident-content"></div>
                 </div>
 
                 <div id="next-action-container"></div>
+                
                 <div class="btn-container">
-                    <button class="btn btn-secondary" onclick="prevStep(1)">이전</button>
+                    <button class="btn btn-secondary" onclick="startAssessment()">처음으로</button>
                 </div>
             </section>
 
-            <!-- Phase 3: Photo Upload -->
-            <section id="step-3" class="phase">
+            <!-- Phase 3: Improvement & Photo (NEW) -->
+            <section id="step-improvement" class="phase">
                 <div class="section-header">
-                    <h2>현장 사진 촬영</h2>
+                    <h2>개선 조치 및 사진</h2>
+                    <p>평가가 완료되었습니다. 개선이 필요한 사항에 대해 사진과 의견을 남겨주세요.</p>
                 </div>
-                <div class="photo-upload-container">
-                    <div id="photo-preview" class="photo-upload-area" onclick="document.getElementById('photo-input').click()" style="cursor: pointer;">
-                        <i data-lucide="camera" class="placeholder-icon" style="pointer-events: none;"></i>
-                        <p style="pointer-events: none;">현장 사진 촬영하기 (여기를 터치)</p>
+
+                <div class="improvement-content-area" style="margin-top: 1.5rem;">
+                    <div class="media-card" style="margin-bottom: 2rem;">
+                        <h4><i data-lucide="camera" style="width:16px; margin-right:4px;"></i> 현장 점검 사진 (필수)</h4>
+                        <div class="photo-upload-box" onclick="document.getElementById('photo-input').click()" id="improvement-photo-area">
+                            <i data-lucide="image-plus" style="width:32px; height:32px; margin-bottom:8px; opacity:0.3;"></i>
+                            <span>사진 촬영 또는 선택</span>
+                        </div>
+                        <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;">
+                        <div id="photo-preview" style="margin-top:1rem;"></div>
                     </div>
-                    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display: none;">
-                    <button class="btn btn-secondary" onclick="document.getElementById('photo-input').click()" style="margin-top: 10px;">사진 교체하기</button>
+
+                    <div class="manual-input-area" style="background:white; border-radius:24px; padding:1.5rem; border:1px solid #f1f5f9;">
+                        <label class="ui-label" style="display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="edit-3" style="width:16px;"></i> 종합 개선 의견 (수기 입력)
+                        </label>
+                        <textarea id="overall-improvement" class="manual-textarea" style="min-height:150px; margin-top:12px;" placeholder="현장 조치 사항이나 추가 개선이 필요한 내용을 입력하세요..."></textarea>
+                    </div>
                 </div>
-                <div class="btn-container">
-                    <button class="btn btn-primary" onclick="nextStep(4)">다음 단계 <i data-lucide="arrow-right"></i></button>
-                    <button class="btn btn-secondary" onclick="prevStep(2)">이전</button>
+
+                <div class="btn-container adaptive" style="margin-top:2.5rem;">
+                    <button class="btn btn-primary main-action-btn" onclick="nextStep(4)">다음 (서명 및 제출) <i data-lucide="chevron-right"></i></button>
                 </div>
             </section>
 
-            <!-- Phase 4: Digital Signature -->
+            <!-- Phase 4: Digital Signature (Renamed from 3 to 4) -->
             <section id="step-4" class="phase">
                 <div class="section-header">
                     <h2>디지털 서명</h2>
+                    <p>점검 내용을 확인하고 본인 서명을 완료해 주세요.</p>
                 </div>
                 <div class="signature-container">
                     <canvas id="signature-pad"></canvas>
                     <button class="btn btn-secondary btn-sm" id="clear-signature">지우기</button>
                 </div>
                 <div class="btn-container">
-                    <button class="btn btn-primary btn-finish" id="submit-btn" onclick="submitLog()">결과 제출</button>
-                    <button class="btn btn-secondary" onclick="prevStep(3)">이전</button>
+                    <button class="btn btn-primary btn-finish" id="submit-btn" onclick="submitLog()">준수 결과 제출 <i data-lucide="send"></i></button>
+                    <button class="btn btn-secondary" onclick="switchPhase('step-improvement')">이전</button>
                 </div>
             </section>
 

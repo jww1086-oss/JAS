@@ -791,3 +791,155 @@ body {
     border-radius: 12px;
     background: #f8fafc;
 }
+
+/* --- Assessment Management Card (Unified) --- */
+.assessment-management-card {
+    background: white;
+    border-radius: 28px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+    padding-left: 4px;
+}
+
+.card-header .header-icon {
+    width: 20px;
+    color: #3b82f6;
+}
+
+.card-header span {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #475569;
+    letter-spacing: -0.01em;
+}
+
+.banner-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.assessment-banner, .history-banner {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 1.25rem 1.5rem !important;
+    border-radius: 20px !important;
+    cursor: pointer !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.assessment-banner {
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%) !important;
+    color: white !important;
+    box-shadow: 0 8px 20px -4px rgba(30, 64, 175, 0.3) !important;
+    border: none !important;
+}
+
+.history-banner {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    color: #1e293b !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.assessment-banner:active, .history-banner:active { transform: scale(0.98); opacity: 0.9; }
+
+.ab-content, .hb-content { display: flex; align-items: center; gap: 1rem; position: relative; z-index: 2; }
+.ab-icon, .hb-icon { 
+    width: 46px; height: 46px; border-radius: 14px; 
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+}
+.ab-icon { background: rgba(255, 255, 255, 0.2); color: white; }
+.hb-icon { background: white; color: #3b82f6; border: 1px solid #e2e8f0; }
+
+.ab-text h3, .hb-text h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 2px; }
+.ab-text p, .hb-text p { font-size: 0.8rem; opacity: 0.8; font-weight: 500; }
+
+.ab-arrow, .hb-arrow { opacity: 0.3; }
+
+/* Grid Icon Alignment */
+.doing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.grid-card {
+    background: white; border-radius: 20px; padding: 1.25rem 0.5rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1px solid #f1f5f9; box-shadow: var(--shadow-sm); cursor: pointer; transition: 0.2s;
+}
+
+.icon-box {
+    width: 48px; height: 48px; border-radius: 14px; margin-bottom: 8px;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+}
+
+.grid-card span { font-size: 0.72rem; font-weight: 800; text-align: center; color: #475569; line-height: 1.25; }
+
+/* --- Hierarchical Selection (Dept/Task Banners) --- */
+.selection-banner-list { display: flex; flex-direction: column; gap: 12px; }
+
+.dept-banner-card, .task-banner-card {
+    background: white; padding: 1.25rem 1.5rem; border-radius: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid #f1f5f9; box-shadow: 0 4px 10px -2px rgba(0,0,0,0.03);
+    transition: all 0.3s ease; cursor: pointer;
+}
+
+.dept-banner-card:active, .task-banner-card:active { transform: scale(0.98); background: #f8fafc; }
+
+.dbc-icon, .tbc-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; margin-right: 14px;
+}
+.dbc-icon { background: #eff6ff; color: #3b82f6; }
+.tbc-icon { background: #f0fdf4; color: #22c55e; }
+
+.dbc-text, .tbc-text { flex: 1; }
+.dbc-text .title, .tbc-text .title { font-weight: 800; color: #1e293b; font-size: 1.05rem; margin-bottom: 2px; }
+.dbc-text .desc, .tbc-text .desc { font-size: 0.75rem; color: #64748b; font-weight: 500; }
+
+.dbc-arrow, .tbc-arrow { color: #cbd5e1; width: 18px; }
+
+/* --- Improvement Phase Styles --- */
+.photo-upload-box {
+    background: #f8fafc;
+    border: 2px dashed #e2e8f0;
+    border-radius: 24px;
+    padding: 3rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.photo-upload-box:hover { border-color: #3b82f6; background: #f1f5f9; }
+.photo-upload-box span { font-size: 0.85rem; font-weight: 700; color: #64748b; }
+
+.confirm-summary-card {
+    animation: fadeInSlide 0.4s ease-out;
+}
+
+@keyframes fadeInSlide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Progress Wrapper Animation */
+.step-progress-wrapper { animation: fadeInDown 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
