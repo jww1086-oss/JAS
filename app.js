@@ -95,42 +95,42 @@ document.addEventListener('DOMContentLoaded', () => {
 function initLucide() { if (window.lucide) window.lucide.createIcons(); }
 
 function switchPhase(targetId, skipHistory = false) {
-    const currentPhase = document.querySelector('.phase.active');
     const targetPhase = document.getElementById(targetId);
-    if (!targetPhase || currentPhase === targetPhase) return;
+    if (!targetPhase) return;
 
     // 히스토리 기록 (뒤로가기용)
     if (!skipHistory) {
-        history.pushState({ phase: targetId }, "", "#" + targetId);
+        history.pushState({ phase: targetId }, "", targetId === 'dashboard' ? " " : "#" + targetId);
     }
 
-    // Handle Stepper Visibility and State
+    // Stepper & Step State
     const stepper = document.getElementById('stepper');
     if (targetId === 'dashboard') {
-        stepper.style.display = 'none';
+        if (stepper) stepper.style.display = 'none';
         currentState.currentStep = 0;
     } else {
-        stepper.style.display = 'block';
+        if (stepper) stepper.style.display = 'block';
         const stepNum = parseInt(targetId.replace('step-', ''));
         currentState.currentStep = stepNum;
         updateStepperUI(stepNum);
     }
 
-    currentPhase.style.opacity = '0';
-    currentPhase.style.transform = 'translateY(10px)';
-    
+    // 화면 페이즈 관리: 단 하나의 active만 존재하도록 강제
+    document.querySelectorAll('.phase').forEach(p => {
+        p.classList.remove('active');
+        p.style.opacity = '0';
+    });
+
+    targetPhase.classList.add('active');
     setTimeout(() => {
-        currentPhase.classList.remove('active');
-        currentPhase.style.transform = '';
-        targetPhase.classList.add('active');
-        targetPhase.style.opacity = '0';
-        targetPhase.style.transform = 'translateY(-10px)';
-        targetPhase.offsetHeight;
         targetPhase.style.opacity = '1';
         targetPhase.style.transform = 'translateY(0)';
+    }, 10);
+    
+    if (targetId !== 'dashboard') {
         initLucide();
-        window.scrollTo(0, 0); // 화면 최상단으로 이동
-    }, 200);
+    }
+    window.scrollTo(0, 0); 
 }
 
 function updateStepperUI(activeStep) {
@@ -148,13 +148,10 @@ function updateStepperUI(activeStep) {
     fill.style.width = `${percent}%`;
 }
 
-function goHome(skipHistory = false) { 
-    if (currentState.currentStep === 0) {
-        location.reload(); 
-    } else {
-        if (!skipHistory) history.pushState({ phase: 'dashboard' }, "", "");
-        switchPhase('dashboard', true);
-    }
+function goHome() { 
+    // 브라우저 캐시 무시하고 루트 경로로 강제 리로드
+    window.location.assign(window.location.origin + window.location.pathname);
+    setTimeout(() => { window.location.reload(); }, 50);
 }
 
 function startAssessment() {
