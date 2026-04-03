@@ -20,7 +20,7 @@ const currentState = {
     signatureBase64: null
 };
 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzTdFJede-khLAdZOKVwHHpBEP7-BIop--xv2U011RUJheLMCodJEiCnr10the9snn4mA/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxuLvc2ywLQri2vELWld5UcBYwdsNGXu_vN2NfYAl3fjYm5XSThOalrHckbSh0zFgODPg/exec";
 
 // 1. 데이터 보안 우회(CORS) 및 정제 유틸리티
 function cleanValue(val) {
