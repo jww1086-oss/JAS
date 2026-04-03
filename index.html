@@ -49,21 +49,26 @@
                         <h2>안전모 미착용자!<br>사다리 작업금지!</h2>
                     </div>
                 </div>
+
+                <!-- 제출내력 확인 서브 배너 -->
+                <div class="history-banner" onclick="viewHistory()">
+                    <div class="hb-content">
+                        <div class="hb-icon">
+                            <i data-lucide="history"></i>
+                        </div>
+                        <div class="hb-text">
+                            <h3>제출내역 확인</h3>
+                            <p>과거에 작성한 위험성평가표를 조회합니다.</p>
+                        </div>
+                    </div>
+                    <div class="hb-arrow">
+                        <i data-lucide="chevron-right"></i>
+                    </div>
+                </div>
                 
                 <!-- Doing Grid Menu -->
                 <div class="doing-grid">
-                    <div class="grid-card" onclick="startAssessment()">
-                        <div class="icon-box color-pink">
-                            <i data-lucide="clipboard-check"></i>
-                        </div>
-                        <span>위험성평가</span>
-                    </div>
-                    <div class="grid-card" onclick="viewHistory()">
-                        <div class="icon-box color-indigo">
-                            <i data-lucide="history"></i>
-                        </div>
-                        <span>제출 내역<br>확인</span>
-                    </div>
+                    <!-- Grid items will start from here -->
                     <div class="grid-card">
                         <div class="icon-box color-blue">
                             <i data-lucide="construction"></i>
