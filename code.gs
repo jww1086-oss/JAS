@@ -1,0 +1,86 @@
+/**
+ * KOSHA Smart Safety System - Google Apps Script (Multi-Sheet Version)
+ * 
+ * 기능:
+ * 1. GET: 시트 데이터(위험성_마스터, 사용자명단)를 JSON으로 반환
+ * 2. POST: 점검 완료 시 '실시로그'와 '개선대책_실행계획서' 시트에 각각 데이터 저장
+ */
+
+const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; // 실제 스프레드시트 ID로 교체 필요
+
+function doGet(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("위험성_마스터");
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const rows = data.slice(1);
+  
+  const result = rows.map(row => {
+    let obj = {};
+    headers.forEach((header, i) => obj[header] = row[i]);
+    return obj;
+  });
+  
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const data = JSON.parse(e.postData.contents);
+    
+    // 1. '실시로그' 저장
+    const logSheet = ss.getSheetByName("실시로그");
+    if (!logSheet) throw new Error("'실시로그' 시트가 없습니다.");
+    
+    data.logs.forEach(log => {
+      logSheet.appendRow([
+        new Date(), // 점검일시
+        data.worker,
+        data.department,
+        data.task,
+        data.step,
+        log.hazard,
+        log.current_checked,
+        log.current_frequency,
+        log.current_severity,
+        log.current_score,
+        log.improvements_checked,
+        log.residual_frequency,
+        log.residual_severity,
+        log.residual_score
+      ]);
+    });
+    
+    // 2. '개선대책_실행계획서' 저장 (대상이 있는 경우만)
+    if (data.improvement_plan && data.improvement_plan.length > 0) {
+      let improveSheet = ss.getSheetByName("개선대책_실행계획서");
+      
+      // 시트가 없으면 헤더와 함께 생성
+      if (!improveSheet) {
+        improveSheet = ss.insertSheet("개선대책_실행계획서");
+        improveSheet.appendRow(["부서명", "작업명", "위험요인", "개선대책", "개선일", "담당자"]);
+        improveSheet.getRange(1, 1, 1, 6).setBackground("#f1f5f9").setFontWeight("bold");
+      }
+      
+      data.improvement_plan.forEach(plan => {
+        improveSheet.appendRow([
+          plan.department,
+          plan.task_name,
+          plan.hazard,
+          plan.improvement_measure,
+          plan.improvement_date,
+          plan.manager
+        ]);
+      });
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
