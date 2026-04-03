@@ -69,6 +69,20 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDate();
     setInterval(updateDate, 60000);
 
+    // 초기 히스토리 상태 설정 (메인 화면)
+    if (!history.state) {
+        history.replaceState({ phase: 'dashboard' }, "", "");
+    }
+
+    // 브라우저/물리 뒤로가기 감지
+    window.onpopstate = (event) => {
+        if (event.state && event.state.phase) {
+            switchPhase(event.state.phase, true);
+        } else {
+            goHome(true);
+        }
+    };
+
     const canvas = document.getElementById('signature-pad');
     if (canvas) {
         signaturePad = new SignaturePad(canvas, {
@@ -80,10 +94,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initLucide() { if (window.lucide) window.lucide.createIcons(); }
 
-function switchPhase(targetId) {
+function switchPhase(targetId, skipHistory = false) {
     const currentPhase = document.querySelector('.phase.active');
     const targetPhase = document.getElementById(targetId);
     if (!targetPhase || currentPhase === targetPhase) return;
+
+    // 히스토리 기록 (뒤로가기용)
+    if (!skipHistory) {
+        history.pushState({ phase: targetId }, "", "#" + targetId);
+    }
 
     // Handle Stepper Visibility and State
     const stepper = document.getElementById('stepper');
@@ -110,6 +129,7 @@ function switchPhase(targetId) {
         targetPhase.style.opacity = '1';
         targetPhase.style.transform = 'translateY(0)';
         initLucide();
+        window.scrollTo(0, 0); // 화면 최상단으로 이동
     }, 200);
 }
 
@@ -128,7 +148,14 @@ function updateStepperUI(activeStep) {
     fill.style.width = `${percent}%`;
 }
 
-function goHome() { location.reload(); }
+function goHome(skipHistory = false) { 
+    if (currentState.currentStep === 0) {
+        location.reload(); 
+    } else {
+        if (!skipHistory) history.pushState({ phase: 'dashboard' }, "", "");
+        switchPhase('dashboard', true);
+    }
+}
 
 function startAssessment() {
     switchPhase('step-1');
@@ -158,8 +185,11 @@ function nextStep(step) {
 }
 
 function prevStep(step) {
-    if (step === 0) goHome();
-    else switchPhase(`step-${step}`);
+    if (step === 0) {
+        goHome();
+    } else {
+        history.back(); // 히스토리 뒤로가기 실행 (popstate에서 화면 전환 처리됨)
+    }
 }
 
 function loadMockData() {
