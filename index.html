@@ -174,12 +174,12 @@
                     <h2>현장 사진 촬영</h2>
                 </div>
                 <div class="photo-upload-container">
-                    <div id="photo-preview" class="photo-upload-area">
-                        <i data-lucide="camera" class="placeholder-icon"></i>
-                        <p>사진 촬영 및 업로드</p>
+                    <div id="photo-preview" class="photo-upload-area" onclick="document.getElementById('photo-input').click()" style="cursor: pointer;">
+                        <i data-lucide="camera" class="placeholder-icon" style="pointer-events: none;"></i>
+                        <p style="pointer-events: none;">현장 사진 촬영하기 (여기를 터치)</p>
                     </div>
                     <input type="file" id="photo-input" accept="image/*" capture="environment" style="display: none;">
-                    <button class="btn btn-secondary" onclick="document.getElementById('photo-input').click()">교체</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('photo-input').click()" style="margin-top: 10px;">사진 교체하기</button>
                 </div>
                 <div class="btn-container">
                     <button class="btn btn-primary" onclick="nextStep(4)">다음 단계 <i data-lucide="arrow-right"></i></button>
