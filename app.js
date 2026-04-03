@@ -252,59 +252,76 @@ function generateReportHTML(data) {
     const logs = data.logs || [];
     return `
         <div class="report-view-container">
-            <table class="report-table">
-                <tr>
-                    <th colspan="7" class="table-header-main">작업 안전점검 및 위험성평가표</th>
-                </tr>
-                <tr>
-                    <th>부서명</th>
-                    <td colspan="2">${data.department}</td>
-                    <th>작업일시</th>
-                    <td colspan="3">${data.timestamp}</td>
-                </tr>
-                <tr>
-                    <th>작업명</th>
-                    <td colspan="2">${data.task}</td>
-                    <th>점검자</th>
-                    <td colspan="3">${data.worker}</td>
-                </tr>
-                <tr>
-                    <th rowspan="2">위험요인 (Hazard)</th>
-                    <th rowspan="2">안전조치 이행내역 (현재)</th>
-                    <th colspan="2">현재 위험도</th>
-                    <th rowspan="2">개선대책 및 잔류 위험성</th>
-                    <th colspan="2">잔류 위험도</th>
-                </tr>
-                <tr>
-                    <th>강도</th>
-                    <th>빈도</th>
-                    <th>강도</th>
-                    <th>빈도</th>
-                </tr>
-                ${logs.map(log => `
-                    <tr>
-                        <td style="text-align:left;">${log.hazard}</td>
-                        <td style="text-align:left;">${log.current_checked.replace(/\n/g, '<br>')}</td>
-                        <td>${log.current_severity}</td>
-                        <td>${log.current_frequency} / ${getScoreBadge(log.current_score)}</td>
-                        <td style="text-align:left;">${log.improvements_checked.replace(/\n/g, '<br>')}</td>
-                        <td>${log.residual_severity}</td>
-                        <td>${log.residual_frequency} / ${getScoreBadge(log.residual_score)}</td>
-                    </tr>
-                `).join('')}
-                <tr>
-                    <th colspan="3">현장 점검 사진</th>
-                    <th colspan="4">점검자 서명</th>
-                </tr>
-                <tr>
-                    <td colspan="3">
-                        ${data.photo ? `<img src="${data.photo}" class="report-image">` : '사진 없음'}
-                    </td>
-                    <td colspan="4">
-                        ${data.signature ? `<img src="${data.signature}" class="report-signature">` : '서명 없음'}
-                    </td>
-                </tr>
-            </table>
+            <!-- 요약 정보 카드 -->
+            <div class="report-summary-card">
+                <div class="summary-title">위험성평가 결과 보고서</div>
+                <div class="summary-info-grid">
+                    <div class="summary-label">부서명</div>
+                    <div class="summary-value">${data.department}</div>
+                    
+                    <div class="summary-label">작업일시</div>
+                    <div class="summary-value">${data.timestamp}</div>
+                    
+                    <div class="summary-label">작업명</div>
+                    <div class="summary-value">${data.task}</div>
+                    
+                    <div class="summary-label">점검자</div>
+                    <div class="summary-value">${data.worker} 님</div>
+                </div>
+            </div>
+
+            <!-- 위험요인별 상세 카드 스택 -->
+            ${logs.map((log, i) => `
+                <div class="hazard-report-card">
+                    <div class="hazard-card-header">
+                        <h3><i data-lucide="alert-triangle" style="width:18px; color:#ff4757;"></i> 항목 ${i + 1}. ${log.hazard}</h3>
+                    </div>
+                    <div class="hazard-card-body">
+                        <!-- 현재 상태 섹션 -->
+                        <div class="hazard-section">
+                            <div class="section-label"><i data-lucide="shield-check" style="width:14px;"></i> 현재 안전조치 이행내역</div>
+                            <div class="section-content">${log.current_checked.replace(/\n/g, '<br>')}</div>
+                            <div class="score-display-row">
+                                <div class="score-item">
+                                    <span class="score-label">현재 위험도:</span>
+                                    ${getScoreBadge(log.current_score)}
+                                    <span style="font-size:0.7rem; color:#94a3b8;">(강도 ${log.current_severity} × 빈도 ${log.current_frequency})</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="border-top:1px dashed #e2e8f0; margin:1rem 0;"></div>
+
+                        <!-- 개선 대책 섹션 -->
+                        <div class="hazard-section">
+                            <div class="section-label" style="color:#22c55e;"><i data-lucide="trending-up" style="width:14px;"></i> 개선대책 및 잔류 위험성</div>
+                            <div class="section-content" style="background:#f0fdf4; border-left:4px solid #22c55e;">
+                                ${log.improvements_checked ? log.improvements_checked.replace(/\n/g, '<br>') : '추가 개선사항 없음 (현재 조치 유지)'}
+                            </div>
+                            <div class="score-display-row">
+                                <div class="score-item">
+                                    <span class="score-label">잔류 위험도:</span>
+                                    ${getScoreBadge(log.residual_score)}
+                                    <span style="font-size:0.7rem; color:#94a3b8;">(강도 ${log.residual_severity} × 빈도 ${log.residual_frequency})</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+
+            <!-- 미디어 카드 섹션 -->
+            <div class="report-media-section">
+                <div class="media-card">
+                    <h4><i data-lucide="camera" style="width:16px; vertical-align:middle; margin-right:4px;"></i> 현장 점검 사진</h4>
+                    ${data.photo ? `<img src="${data.photo}" class="media-full-img">` : '<div class="section-content">등록된 사진이 없습니다.</div>'}
+                </div>
+                
+                <div class="media-card">
+                    <h4><i data-lucide="pen-tool" style="width:16px; vertical-align:middle; margin-right:4px;"></i> 점검자 서명</h4>
+                    ${data.signature ? `<img src="${data.signature}" class="media-full-img" style="max-height:150px; background:#fff;">` : '<div class="section-content">서명이 등록되지 않았습니다.</div>'}
+                </div>
+            </div>
         </div>
     `;
 }
