@@ -669,14 +669,17 @@ function initEventListeners() {
 }
 
 async function submitLog() {
+    const workerName = document.getElementById('worker-input')?.value || currentState.selectedWorker;
+    if (!workerName) { showToast("⚠️ 점검자 성명을 입력하거나 선택해 주세요."); return; }
     if (signaturePad.isEmpty()) { showToast("⚠️ 본인 서명이 필요합니다."); return; }
+    
+    const today = new Date().toLocaleDateString('ko-KR');
     const overlay = document.getElementById('loading-overlay');
+    const loadingText = overlay.querySelector('p');
+    if (loadingText) loadingText.innerText = "데이터를 구글 시트로 전송 중입니다...";
     overlay.classList.add('active');
 
-    const workerName = document.getElementById('worker-input').value;
-    const today = new Date().toLocaleDateString('ko-KR');
-
-    // 1. 실시로그용 데이터 (전체 점검 로그)
+    // 1. 실시로그용 데이터
     const logs = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
         const index = parseInt(parts[parts.length - 1]);
@@ -731,7 +734,6 @@ async function submitLog() {
         const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
         const currentMeasuresChecked = measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`));
         
-        // 수기 입력 내용이 있거나, 9점 이상이거나, 미체크 항목이 있는 경우
         const needsImprovement = mNotes.improvement.trim() !== "" || 
                                (riskData && riskData.current.score >= 9) || 
                                (currentMeasuresChecked.length < measures.length);
@@ -764,33 +766,27 @@ async function submitLog() {
         signature: signaturePad.toDataURL()
     };
 
-    const jsonBody = JSON.stringify(payload);
-    console.log("📤 전송 데이터:", payload);
+    try {
+        await fetch(GAS_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'text/plain' }
+        });
 
-    const blob = new Blob([jsonBody], { type: 'text/plain' });
-    const sent = navigator.sendBeacon(GAS_URL, blob);
+        // 전송 완료 안내 (no-cors 특성상 성공 가정)
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            showToast("✅ 점검 결과가 구글 시트로 전송되었습니다.");
+            setTimeout(() => location.reload(), 2000);
+        }, 1500);
 
-    if (!sent) {
-        try {
-            await fetch(GAS_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: jsonBody,
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-            });
-        } catch (err) {
-            console.warn("fetch fallback error:", err.message);
-        }
-    }
-
-    setTimeout(() => {
+    } catch (error) {
+        console.error("전송 오류:", error);
         overlay.classList.remove('active');
-        showToast("✅ 구글 시트에 저장 완료!");
-        setTimeout(() => location.reload(), 1500);
-    }, 1500);
+        showToast("❌ 전송 실패: 인터넷 연결 또는 설정을 확인하세요.");
+    }
 }
-
-
 function showToast(msg) {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
