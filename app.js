@@ -839,7 +839,7 @@ function renderRiskChecklist(stepName) {
                 <div class="step-progress-bar-fill" style="width:${progressPercent}%; height:100%; background:linear-gradient(90deg, #3b82f6, #2563eb); transition:width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
             </div>
         </div>
-        <div class="checklist-items-area">
+        <div class="checklist-global-v4 checklist-items-area" style="display:flex !important; flex-direction:column !important; align-items:stretch !important; width:100% !important;">
     `;
     
     // 필터링 시 부서명 + 작업명 + 단계명 조건을 모두 확인하여 정확한 데이터 로드
@@ -874,7 +874,8 @@ function renderRiskChecklist(stepName) {
         const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
         
         return `
-            <div class="check-item ${isChecked ? 'checked' : ''} ${isChecked ? 'expanded' : ''}" id="risk-${i}">
+            <div class="check-item ${isChecked ? 'checked' : ''} ${isChecked ? 'expanded' : ''}" id="risk-${i}" 
+                 style="width: 100% !important; min-width: 100% !important; box-sizing: border-box !important;">
                 <div class="check-item-header">
                     <div class="check-indicator" onclick="toggleRisk(${i}, '${stepName}')">
                         <i data-lucide="check"></i>
@@ -888,16 +889,18 @@ function renderRiskChecklist(stepName) {
                     <p style="font-size:0.8rem; font-weight:800; color:var(--doing-blue); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
                         <i data-lucide="shield-check" style="width:14px;"></i> [현재안전조치]
                     </p>
-                    <ul class="measure-list">
+                    <ul class="measure-list" style="width: 100% !important; padding: 0 !important;">
                         ${measures.map((m, mi) => {
                             const mKey = `${key}-m-${mi}`;
                             const isMChecked = currentState.checkedMeasures.has(mKey);
                             return `
-                                <li class="${isMChecked ? 'checked' : ''}" onclick="toggleMeasure('${mKey}', 'current', event)">
+                                <li class="measure-item ${isMChecked ? 'checked' : ''}" 
+                                    style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.8rem !important; box-sizing: border-box !important;"
+                                    onclick="toggleMeasure('${mKey}', 'current', event)">
                                     <div class="m-checkbox ${isMChecked ? 'active' : ''}">
                                         <i data-lucide="check"></i>
                                     </div>
-                                    <span>${m}</span>
+                                    <span style="flex: 1; word-break: keep-all;">${m}</span>
                                 </li>
                             `;
                         }).join('')}
@@ -940,17 +943,19 @@ function renderRiskChecklist(stepName) {
                     </p>
                     
                     ${measures.some((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)) ? `
-                        <ul class="measure-list improvement">
+                        <ul class="measure-list improvement" style="width: 100% !important; padding: 0 !important;">
                             ${measures.map((m, mi) => {
                                 const mKey = `${key}-m-${mi}`;
                                 if (currentState.checkedMeasures.has(mKey)) return '';
                                 const isMImproved = currentState.improvedMeasures.has(mKey);
                                 return `
-                                    <li class="${isMImproved ? 'improved' : ''}" onclick="toggleMeasure('${mKey}', 'improve', event)">
+                                    <li class="measure-item ${isMImproved ? 'improved' : ''}" 
+                                        style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.8rem !important; box-sizing: border-box !important;"
+                                        onclick="toggleMeasure('${mKey}', 'improve', event)">
                                         <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}">
                                             <i data-lucide="check"></i>
                                         </div>
-                                        <span>${m}</span>
+                                        <span style="flex: 1; word-break: keep-all;">${m}</span>
                                     </li>
                                 `;
                             }).join('')}
