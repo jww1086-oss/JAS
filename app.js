@@ -16,7 +16,9 @@ const currentState = {
     riskMatrixData: {},
     manualNotes: {},
     photoBase64: null,
-    signatureBase64: null
+    signatureBase64: null,
+    incidents: {}, // Initialize to prevent TypeError
+    risks: []      // Initialize to prevent TypeError
 };
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxuLvc2ywLQri2vELWld5UcBYwdsNGXu_vN2NfYAl3fjYm5XSThOalrHckbSh0zFgODPg/exec";
@@ -839,7 +841,7 @@ function renderRiskChecklist(stepName) {
                 <div class="step-progress-bar-fill" style="width:${progressPercent}%; height:100%; background:linear-gradient(90deg, #3b82f6, #2563eb); transition:width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
             </div>
         </div>
-        <div class="checklist-global-v4 checklist-items-area" style="display:flex !important; flex-direction:column !important; align-items:stretch !important; width:100% !important;">
+        <div class="checklist-global-v6.3 checklist-items-area" style="display:flex !important; flex-direction:column !important; align-items:stretch !important; width:100% !important; padding:0 !important; margin-top: 1rem !important;">
     `;
     
     // 필터링 시 부서명 + 작업명 + 단계명 조건을 모두 확인하여 정확한 데이터 로드
@@ -895,20 +897,20 @@ function renderRiskChecklist(stepName) {
                             const isMChecked = currentState.checkedMeasures.has(mKey);
                             return `
                                 <li class="measure-item ${isMChecked ? 'checked' : ''}" 
-                                    style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.8rem !important; box-sizing: border-box !important;"
+                                    style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.5rem 0.25rem !important; margin-bottom: 4px !important; box-sizing: border-box !important;"
                                     onclick="toggleMeasure('${mKey}', 'current', event)">
-                                    <div class="m-checkbox ${isMChecked ? 'active' : ''}">
+                                    <div class="m-checkbox ${isMChecked ? 'active' : ''}" style="margin-right: 12px !important;">
                                         <i data-lucide="check"></i>
                                     </div>
-                                    <span style="flex: 1; word-break: keep-all;">${m}</span>
+                                    <span style="flex: 1 !important; text-align: left !important; font-size: 0.95rem !important; line-height: 1.5 !important;">${m}</span>
                                 </li>
                             `;
                         }).join('')}
                     </ul>
 
                     <!-- Matrix 1: 현재 위험성 수준 평가 -->
-                    <div class="risk-matrix-controls current-matrix">
-                        <div class="manual-input-area">
+                    <div class="risk-matrix-controls current-matrix" style="border: none !important; background: none !important; padding: 0 !important;">
+                        <div class="manual-input-area" style="background: #f8fafc !important; border: 1px dashed #e2e8f0 !important; border-radius: 12px !important; padding: 12px !important;">
                             <label class="manual-label"><i data-lucide="edit-3" style="width:14px;"></i> 현재 추가 안전조치 (수기 입력)</label>
                             <textarea class="manual-textarea" placeholder="기존 대책 외 추가된 현장 조치 내용을 입력하세요..." 
                                 oninput="updateManualNote('${key}', 'current', this.value)">${notes.current || ""}</textarea>
@@ -938,9 +940,10 @@ function renderRiskChecklist(stepName) {
                     </div>
 
                     <!-- Section 2: 개선대책 및 잔류 위험성 -->
-                    <p style="font-size:0.8rem; font-weight:800; color:var(--doing-accent); margin-top:24px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="wrench" style="width:14px;"></i> [개선대책 및 잔류 위험도 점검]
-                    </p>
+                    <div class="residual-cleanup-area" style="margin-top: 1.5rem !important; border-top: 1px solid #f1f5f9 !important; padding-top: 1.5rem !important;">
+                        <p style="font-size:0.8rem; font-weight:800; color:var(--doing-accent); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="wrench" style="width:14px;"></i> [개선대책 및 잔류 위험도 점검]
+                        </p>
                     
                     ${measures.some((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)) ? `
                         <ul class="measure-list improvement" style="width: 100% !important; padding: 0 !important;">
@@ -950,12 +953,12 @@ function renderRiskChecklist(stepName) {
                                 const isMImproved = currentState.improvedMeasures.has(mKey);
                                 return `
                                     <li class="measure-item ${isMImproved ? 'improved' : ''}" 
-                                        style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.8rem !important; box-sizing: border-box !important;"
+                                        style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.5rem 0.25rem !important; margin-bottom: 4px !important; box-sizing: border-box !important;"
                                         onclick="toggleMeasure('${mKey}', 'improve', event)">
-                                        <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}">
+                                        <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}" style="margin-right: 12px !important;">
                                             <i data-lucide="check"></i>
                                         </div>
-                                        <span style="flex: 1; word-break: keep-all;">${m}</span>
+                                        <span style="flex: 1 !important; text-align: left !important; font-size: 0.95rem !important; line-height: 1.5 !important;">${m}</span>
                                     </li>
                                 `;
                             }).join('')}
@@ -1008,7 +1011,7 @@ function checkIncidents(taskRisks) {
     
     // Find if any of the hazard has a matching incident
     const matchingIncidents = taskRisks
-        .map(r => currentState.incidents[r.위험요인])
+        .map(r => (currentState.incidents && r.위험요인) ? currentState.incidents[r.위험요인] : null)
         .filter(incident => incident);
 
     if (matchingIncidents.length > 0) {

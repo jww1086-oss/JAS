@@ -237,11 +237,11 @@ body {
 }
 
 /* Phase & Transitions */
-.phase { display: none; transition: 0.3s ease; }
-.phase.active { display: block; }
+.phase { display: none; width: 100% !important; transition: 0.3s ease; }
+.phase.active { display: block !important; width: 100% !important; }
 
 /* Assessment Phase Styles */
-.phase:not(#dashboard) { padding: 2.5rem 1.5rem; background: #fff; }
+.phase:not(#dashboard) { padding: 2.25rem 1rem; background: #fff; width: 100% !important; box-sizing: border-box !important; }
 .section-header { margin-bottom: 2.25rem; }
 .section-header h2 { font-size: 1.8rem; font-weight: 900; color: #0f172a; letter-spacing: -1px; }
 .section-header p { font-size: 0.95rem; color: #64748b; margin-top: 0.5rem; }
@@ -266,14 +266,21 @@ body {
 }
 
 .check-item {
-    background: #fff; border: 2px solid #f1f5f9; border-radius: 20px; margin-bottom: 1.25rem;
-    padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; cursor: pointer; 
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: transparent; /* Box background completely removed */
+    border: none;           /* Box border completely removed */
+    border-bottom: 1px solid #f1f5f9; /* Subtle divider only */
+    border-radius: 0;
+    margin-bottom: 0;
+    padding: 1.5rem 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    cursor: pointer; 
+    transition: all 0.2s ease;
     overflow: hidden;
     width: 100% !important;
-    min-width: 100% !important;
 }
-.check-item.checked { border-color: var(--doing-blue); background: #f0f9ff; }
+.check-item.checked { border-left: 4px solid var(--doing-blue); background: #f8fafc; }
 .check-item-header { display: flex; gap: 1.25rem; align-items: center; }
 
 .check-indicator {
@@ -291,33 +298,31 @@ body {
 
 .measure-container {
     max-height: 0; opacity: 0; transition: all 0.4s ease;
-    padding-left: 0.75rem; /* Reduced from 1.25rem to prevent right-leaning text */
-    padding-right: 0.75rem;
+    padding-left: 0 !important; /* No more box-in-box padding */
+    padding-right: 0 !important;
     width: 100% !important;
 }
 .check-item.expanded .measure-container { max-height: 3000px; opacity: 1; margin-top: 0.5rem; padding-bottom: 0.5rem; }
 
 .measure-list { list-style: none; padding: 0; }
 .measure-list li {
-    font-size: 0.9rem; 
+    font-size: 0.95rem; 
     color: #334155; 
     position: relative; 
-    padding: 0.8rem 1rem;
-    margin-bottom: 0.6rem; 
-    line-height: 1.6; 
-    font-weight: 600;
-    background: #f8fafc;
-    border-radius: 14px;
+    padding: 0.75rem 0.1rem;
+    margin-bottom: 0; 
+    line-height: 1.5; 
+    font-weight: 500;
+    background: none !important;
+    border: none !important;
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    transition: 0.2s;
-    border: 1.5px solid transparent;
+    border-bottom: 1px dotted #f1f5f9; /* Extra subtle list divider */
 }
 .measure-list li.checked {
-    background: #ecfdf5;
-    color: #065f46;
-    border-color: #10b981;
+    background: transparent;
+    color: #10b981;
 }
 
 .m-checkbox {
@@ -353,14 +358,13 @@ body {
 }
 
 .measure-list.improvement li {
-    border-left: 4px solid var(--doing-accent);
-    background: #fffafa;
+    border-left: 3px solid var(--doing-accent);
+    padding-left: 0.75rem;
+    background: none !important;
 }
 .measure-list.improvement li.improved {
-    background: #fff1f2;
-    color: #9f1239;
-    color: #941239;
-    border-color: var(--doing-accent);
+    background: #fffafa !important;
+    color: var(--doing-accent);
 }
 
 /* Unified Risk Matrix Row - One Line Premium Layout */
@@ -883,25 +887,6 @@ body {
 
 .ab-arrow, .hb-arrow { opacity: 0.3; }
 
-/* Grid Icon Alignment */
-.doing-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
-
-.grid-card {
-    background: white; border-radius: 20px; padding: 1.25rem 0.5rem;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border: 1px solid #f1f5f9; box-shadow: var(--shadow-sm); cursor: pointer; transition: 0.2s;
-}
-
-.icon-box {
-    width: 48px; height: 48px; border-radius: 14px; margin-bottom: 8px;
-    display: flex !important; align-items: center !important; justify-content: center !important;
-}
-
-.grid-card span { font-size: 0.72rem; font-weight: 800; text-align: center; color: #475569; line-height: 1.25; }
 
 /* --- Hierarchical Selection (Dept/Task Banners) --- */
 .selection-banner-list { display: flex; flex-direction: column; gap: 12px; }
