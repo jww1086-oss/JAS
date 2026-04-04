@@ -25,7 +25,7 @@ const currentState = {
     improvementResults: {} // [NEW] 개선 단계(Phase 3)의 개별 사진 및 결과 { measureId: { photo: null, note: "" } }
 };
 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyRolZZrX4yax-V1tgfeotzzkqqDSCwDmv0RQg5KXTomG1haYLRDFzSmic_n5gu_hzSww/exec"; // [FINAL] 최신 앱스 스크립트 주소
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxXqNXF68HqVuTGaK8jX66Y2Exbdd3k3W2FEHhEs6EaQBAEHTO9R8ItBN__jFlRtwAtyg/exec"; // [FINAL] 사진 및 드라이브 연동 주소
 
 // 1. 데이터 보안 우회(CORS) 및 정제 유틸리티
 function cleanValue(val) {
