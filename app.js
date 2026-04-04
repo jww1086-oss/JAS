@@ -1701,7 +1701,9 @@ function initEventListeners() {
                     
                     currentState.photoBase64 = optimizedData;
                     const preview = document.getElementById('photo-preview');
-                    preview.innerHTML = `<img src="${optimizedData}" style="width:100%; border-radius:20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">`;
+                    if (preview) {
+                        preview.innerHTML = `<img src="${optimizedData}" style="width:100%; border-radius:20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">`;
+                    }
                 };
                 img.src = f.target.result;
             };
@@ -1723,11 +1725,11 @@ async function submitLog() {
     
     const today = new Date().toLocaleDateString('ko-KR');
     const overlay = document.getElementById('loading-overlay');
-    const loadingText = overlay.querySelector('p');
+    const loadingText = overlay ? overlay.querySelector('p') : null;
     if (loadingText) loadingText.innerText = "데이터를 처리 중입니다...";
-    overlay.classList.add('active');
+    if (overlay) overlay.classList.add('active');
 
-    // 1. 실시로그용 데이터 생성 (기본 로직 유지)
+    // 1. 실시로그용 데이터 생성
     const logs = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
         if (parts.length < 3) return null;
@@ -1744,14 +1746,14 @@ async function submitLog() {
         const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
         const currentChecked = [...measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current].filter(v => v && v.trim()).join('\n');
-        const improvedList = [...measures.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
+        const improvedList = [...measures.filter((_, mi) => currentState.improvedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
         return {
             hazard: r.위험요인,
-            current_checked: currentChecked,
+            current_measures: currentChecked || "현재 조치 유지 및 실천",
+            improvements_checked: improvedList,
             current_frequency: riskData.current.frequency,
             current_severity: riskData.current.severity,
             current_score: riskData.current.score,
-            improvements_checked: improvedList,
             residual_frequency: riskData.residual.frequency,
             residual_severity: riskData.residual.severity,
             residual_score: riskData.residual.score
