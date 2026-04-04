@@ -1882,14 +1882,32 @@ async function submitLog() {
         const parts = key.split('-');
         const r = currentState.risks.find(risk => getHash(risk.작업명) === parts[0] && getHash(risk.작업단계) === parts[1] && getHash(risk.위험요인) === parts[2]);
         if (!r) return null;
+
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
         const riskData = currentState.riskMatrixData[key];
-        const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
-        const currentMeasuresChecked = measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`));
-        const needsImprovement = mNotes.improvement.trim() !== "" || (riskData && riskData.current.score >= 9) || (currentMeasuresChecked.length < measures.length);
+        const measuresMaster = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
+        
+        // 개선이 필요한 항목인지 판단
+        const currentMeasuresChecked = measuresMaster.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`));
+        const needsImprovement = mNotes.improvement.trim() !== "" || (riskData && riskData.current.score >= 9) || (currentMeasuresChecked.length < measuresMaster.length);
         if (!needsImprovement) return null;
-        const improvements = [...measures.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
-        return { department: currentState.selectedDept, task_name: currentState.selectedTask, hazard: r.위험요인, improvement_measure: improvements || "현재 조치 완료 및 유지관리", improvement_date: today, manager: workerNames };
+
+        // 개선대책 텍스트 병합
+        const improvements = [...measuresMaster.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
+        
+        // [사진 추출] 해당 위험요인(key)과 연결된 Phase 3의 사진들 중 첫 번째 것을 가져옴
+        const itemPhotoKey = Array.from(currentState.improvedMeasures).find(mKey => mKey.startsWith(key));
+        const itemPhoto = itemPhotoKey ? currentState.improvementResults[itemPhotoKey]?.photo : null;
+
+        return { 
+            department: currentState.selectedDept, 
+            task_name: currentState.selectedTask, 
+            hazard: r.위험요인, 
+            improvement_measure: improvements || "현재 조치 완료 및 유지관리", 
+            improvement_date: today, 
+            manager: workerNames,
+            photo: itemPhoto // 개별 사진 포함
+        };
     }).filter(Boolean);
 
     const payload = {
