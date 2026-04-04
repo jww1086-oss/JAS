@@ -209,11 +209,13 @@ function startAssessment() {
         container.classList.add('selection-banner-list');
     }
     if (header) {
-        header.querySelector('h2').innerText = "부서 선택";
-        header.querySelector('p').innerText = "현재 소속된 부서를 선택하세요.";
+        header.querySelector('h2').innerText = "평가자 정보 및 부서 선택";
+        header.querySelector('p').innerText = "성명을 선택하고 소속 부서를 클릭하세요.";
     }
     if (confirmArea) confirmArea.style.display = 'none';
     if (homeBtn) homeBtn.style.display = 'flex';
+
+    renderWorkers(); // [NEW] 점검자 명단 렌더링 호출
 
     switchPhase('step-1');
     renderDeptBanners();
@@ -1844,7 +1846,7 @@ async function submitLog() {
     if (!navigator.onLine) {
         queueSubmission(payload);
         overlay.classList.remove('active');
-        showToast("📡 오프라인: 점검 내용이 기기에 저장되었습니다. (통신 연결 시 자동 전송)");
+        showToast("📡 오프라인: 평가 내용이 기기에 저장되었습니다. (통신 연결 시 자동 전송)");
         saveToHistory(payload); // 히스토리는 오프라인에서도 저장
         setTimeout(() => location.reload(), 2000);
         return;

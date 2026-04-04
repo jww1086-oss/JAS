@@ -6,28 +6,37 @@
  * 2. POST: 점검 완료 시 '실시로그'와 '개선대책_실행계획서' 시트에 각각 데이터 저장
  */
 
-const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; // 실제 스프레드시트 ID로 교체 필요
+const SPREADSHEET_ID = "1_qLqeCtpr8D66oj7TjNwqvvUNa4xU7m_QVpdyzKryeE"; 
 
 function doGet(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("위험성_마스터");
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const rows = data.slice(1);
-  
-  const result = rows.map(row => {
-    let obj = {};
-    headers.forEach((header, i) => obj[header] = row[i]);
-    return obj;
-  });
-  
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName("위험성_마스터");
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+    
+    // 헤더 정규화(공백 제거 등)를 통해 데이터 신뢰성 확보
+    const result = rows.map(row => {
+      let obj = {};
+      headers.forEach((header, i) => {
+        if (header) obj[header.toString().trim()] = row[i];
+      });
+      return obj;
+    });
+    
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const data = JSON.parse(e.postData.contents);
     
     // 1. '실시로그' 저장

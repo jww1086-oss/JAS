@@ -132,11 +132,19 @@
             <!-- Phase 1: User & Task Selection -->
             <section id="step-1" class="phase">
                 <div class="section-header" id="step1-header">
-                    <h2>부서 선택</h2>
-                    <p>현재 소속된 부서를 선택하세요.</p>
+                    <h2>평가자 정보 및 부서 선택</h2>
+                    <p>먼저 성명을 입력하고 소속 부서를 선택하세요.</p>
+                </div>
+
+                <div class="worker-input-card" style="padding:1.5rem 0 !important; margin-bottom:1.5rem !important;">
+                    <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">평가자 성명</label>
+                    <div class="form-group dropdown-container" style="margin-bottom:0;">
+                        <input type="text" id="worker-input" class="ui-input" style="height:48px;" placeholder="성명을 입력하세요" autocomplete="off">
+                        <div id="worker-dropdown" class="custom-dropdown"></div>
+                    </div>
                 </div>
                 
-                <div id="selection-container" class="selection-banner-list" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div id="selection-container" class="selection-banner-list" style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 1rem;">
                     <!-- JS dynamic -->
                 </div>
 
@@ -151,13 +159,6 @@
                     <h2 id="step2-title">위험 요인 및 대책 확인</h2>
                 </div>
 
-                <div class="worker-input-card" style="padding:1.5rem 0 !important; margin-bottom:1.5rem !important;">
-                    <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">점검자 성명</label>
-                    <div class="form-group dropdown-container" style="margin-bottom:0;">
-                        <input type="text" id="worker-input" class="ui-input" style="height:48px;" placeholder="성명을 입력하세요" autocomplete="off">
-                        <div id="worker-dropdown" class="custom-dropdown"></div>
-                    </div>
-                </div>
                 
                 <div class="checklist" id="risk-checklist"></div>
 
@@ -188,7 +189,7 @@
             <section id="step-4" class="phase">
                 <div class="section-header">
                     <h2>디지털 서명</h2>
-                    <p>점검 내용을 최종 확인하고 본인 서명을 완료해 주세요.</p>
+                    <p>평가 내용을 최종 확인하고 본인 서명을 완료해 주세요.</p>
                 </div>
                 <div class="signature-container" style="background: white; border-radius: 20px; padding: 1rem; border: 1px solid #f1f5f9; margin-bottom: 1.5rem;">
                     <canvas id="signature-pad" style="width: 100%; height: 200px; background: #fafafa; border-radius: 12px;"></canvas>
