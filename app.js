@@ -1606,15 +1606,30 @@ function updateRiskScoreByHash(key, stepName, matrixType, field, value) {
         };
     }
     
-    currentState.riskMatrixData[key][matrixType][field] = parseInt(value);
-    const mData = currentState.riskMatrixData[key][matrixType];
-    mData.score = mData.severity * mData.frequency;
+    // 데이터 업데이트
+    const val = parseInt(value);
+    currentState.riskMatrixData[key][matrixType][field] = val;
     
-    // Auto-check hazard
+    // [핵심 개선] 현재위험(current) 수정 시 잔류위험(residual) 강제 동기화
+    if (matrixType === 'current') {
+        currentState.riskMatrixData[key].residual[field] = val;
+    }
+
+    // 각각의 최종 점수 재계산 (current & residual 둘 다 확실히 동기화)
+    const current = currentState.riskMatrixData[key].current;
+    const residual = currentState.riskMatrixData[key].residual;
+    
+    current.score = (current.severity || 1) * (current.frequency || 1);
+    residual.score = (residual.severity || 1) * (residual.frequency || 1);
+    
+    // 부모 위험요인 자동 체크 처리
     if (!currentState.checkedItems.has(key)) {
         currentState.checkedItems.add(key);
     }
-    renderRiskChecklist(stepName);
+
+    // 리렌더링 (인자가 없으면 전역 상태 사용)
+    const targetStep = stepName || currentState.selectedStep;
+    renderRiskChecklist(targetStep);
 }
 
 function getScoreClass(score) {
