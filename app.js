@@ -26,7 +26,7 @@ const currentState = {
     allLogs: [] // [NEW] 전체 실시로그 데이터 (조회용)
 };
 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxXqNXF68HqVuTGaK8jX66Y2Exbdd3k3W2FEHhEs6EaQBAEHTO9R8ItBN__jFlRtwAtyg/exec"; // [FINAL] 사진 및 드라이브 연동 주소
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwAkVKP9pBVqegU0TS1J7F_ARrRY4JKy3_DdZrMrOwWBscPWeBhdYXqPX1RR3bYWrZ8VA/exec"; // [FINAL] 사진 및 드라이브 연동 주소
 
 // 1. 데이터 보안 우회(CORS) 및 정제 유틸리티
 function cleanValue(val) {
@@ -161,6 +161,11 @@ function switchPhase(targetId, skipHistory = false) {
         targetPhase.style.opacity = '1';
         targetPhase.style.transform = 'translateY(0)';
     }, 20);
+    
+    if (targetId === 'step-4') {
+        const previewData = preparePreviewData();
+        renderDetailedCardReport(previewData, 'preview-results-area', true);
+    }
     
     if (targetId !== 'dashboard') {
         initLucide();
@@ -483,81 +488,102 @@ function getScoreBadge(score) {
 }
 
 function generateReportHTML(data) {
-    const logs = data.logs || [];
-    return `
-        <div class="report-view-container">
-            <!-- 요약 정보 카드 -->
-            <div class="report-summary-card">
-                <div class="summary-title">위험성평가 결과 보고서</div>
-                <div class="summary-info-grid">
-                    <div class="summary-label">부서명</div>
-                    <div class="summary-value">${data.department}</div>
-                    
-                    <div class="summary-label">작업일시</div>
-                    <div class="summary-value">${data.timestamp}</div>
-                    
-                    <div class="summary-label">작업명</div>
-                    <div class="summary-value">${data.task}</div>
-                    
-                    <div class="summary-label">점검자</div>
-                    <div class="summary-value">${data.worker} 님</div>
-                </div>
-            </div>
+    // [UNIFIED] 통합 렌더링 엔진을 사용하도록 변경
+    setTimeout(() => {
+        const logs = (data.logs || []).map(l => ({
+            부서명: data.department,
+            작업명: data.task,
+            점검자: data.worker,
+            일시: data.timestamp,
+            작업단계: l.step || "점검",
+            위험요인: l.hazard,
+            현재안전조치: l.current_checked,
+            개선대책: l.improvements_checked,
+            현재_위험도: l.current_score,
+            잔류_위험도: l.residual_score,
+            종합개선의견: data.overall_improvement
+        }));
+        renderDetailedCardReport(logs, 'report-view-content', false);
+    }, 10);
+    return `<div id="report-view-content" style="min-height:300px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">보고서를 구성 중입니다...</div>`;
+}
 
-            <!-- 위험요인별 상세 카드 스택 -->
-            ${logs.map((log, i) => `
-                <div class="hazard-report-card">
-                    <div class="hazard-card-header">
-                        <h3><i data-lucide="alert-triangle" style="width:18px; color:#ff4757;"></i> 항목 ${i + 1}. ${log.hazard}</h3>
-                    </div>
-                    <div class="hazard-card-body">
-                        <!-- 현재 상태 섹션 -->
-                        <div class="hazard-section">
-                            <div class="section-label"><i data-lucide="shield-check" style="width:14px;"></i> 현재 안전조치 이행내역</div>
-                            <div class="section-content">${log.current_checked.replace(/\n/g, '<br>')}</div>
-                            <div class="score-display-row">
-                                <div class="score-item">
-                                    <span class="score-label">현재 위험도:</span>
-                                    ${getScoreBadge(log.current_score)}
-                                    <span style="font-size:0.7rem; color:#94a3b8;">(강도 ${log.current_severity} × 빈도 ${log.current_frequency})</span>
-                                </div>
-                            </div>
-                        </div>
+// [NEW] 현재 점검 중인 데이터를 보고서 형식으로 변환하는 함수 (v25.0)
+function preparePreviewData() {
+    const logs = [];
+    const workerName = document.getElementById('worker-input')?.value || currentState.selectedWorker || "미지정";
+    
+    // 1. 표준 위험요인 처리
+    currentState.risks.forEach(risk => {
+        const hash = getHash(risk.위험요인);
+        const stepName = risk.작업단계;
+        const key = `${stepName}-${hash}`;
+        
+        if (currentState.checkedItems.has(key) || currentState.riskMatrixData[key]) {
+            const riskData = currentState.riskMatrixData[key] || { current: { score: 1 }, residual: { score: 1 } };
+            
+            const currentMeasures = [];
+            (risk.개선대책 || []).forEach((m, idx) => {
+                if (currentState.checkedMeasures.has(`${key}-m-${idx}`)) {
+                    currentMeasures.push(`[이행] ${m}`);
+                }
+            });
+            const manualCurrent = (currentState.manualHazardItems[key]?.current || []).filter((_, idx) => currentState.checkedMeasures.has(`${key}-mc-${idx}`));
+            currentMeasures.push(...manualCurrent);
+            if (currentState.manualNotes[key]?.current) currentMeasures.push(`(추가의견) ${currentState.manualNotes[key].current}`);
 
-                        <div style="border-top:1px dashed #e2e8f0; margin:1rem 0;"></div>
+            const improveMeasures = [];
+            (risk.개선대책 || []).forEach((m, idx) => {
+                if (currentState.improvedMeasures.has(`${key}-mi-${idx}`)) {
+                    improveMeasures.push(`[개선] ${m}`);
+                }
+            });
+            const manualImprove = (currentState.manualHazardItems[key]?.improve || []).filter((_, idx) => currentState.improvedMeasures.has(`${key}-mi-${idx}`));
+            improveMeasures.push(...manualImprove);
+            if (currentState.manualNotes[key]?.improvement) improveMeasures.push(`(추가의견) ${currentState.manualNotes[key].improvement}`);
 
-                        <!-- 개선 대책 섹션 -->
-                        <div class="hazard-section">
-                            <div class="section-label" style="color:#22c55e;"><i data-lucide="trending-up" style="width:14px;"></i> 개선대책 및 잔류 위험성</div>
-                            <div class="section-content" style="background:#f0fdf4; border-left:4px solid #22c55e;">
-                                ${log.improvements_checked ? log.improvements_checked.replace(/\n/g, '<br>') : '추가 개선사항 없음 (현재 조치 유지)'}
-                            </div>
-                            <div class="score-display-row">
-                                <div class="score-item">
-                                    <span class="score-label">잔류 위험도:</span>
-                                    ${getScoreBadge(log.residual_score)}
-                                    <span style="font-size:0.7rem; color:#94a3b8;">(강도 ${log.residual_severity} × 빈도 ${log.residual_frequency})</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('')}
+            logs.push({
+                부서명: currentState.selectedDept,
+                작업명: currentState.selectedTask,
+                점검자: workerName,
+                작업단계: stepName,
+                위험요인: risk.위험요인,
+                현재안전조치: currentMeasures.join('\n') || "이상 없음 (양호)",
+                개선대책: improveMeasures.join('\n') || "추가 개선사항 없음",
+                현재_위험도: riskData.current.score,
+                잔류_위험도: riskData.residual.score,
+                종합개선의견: document.getElementById('overall-improvement')?.value || ""
+            });
+        }
+    });
 
-            <!-- 미디어 카드 섹션 -->
-            <div class="report-media-section">
-                <div class="media-card">
-                    <h4><i data-lucide="camera" style="width:16px; vertical-align:middle; margin-right:4px;"></i> 현장 점검 사진</h4>
-                    ${data.photo ? `<img src="${data.photo}" class="media-full-img">` : '<div class="section-content">등록된 사진이 없습니다.</div>'}
-                </div>
-                
-                <div class="media-card">
-                    <h4><i data-lucide="pen-tool" style="width:16px; vertical-align:middle; margin-right:4px;"></i> 점검자 서명</h4>
-                    ${data.signature ? `<img src="${data.signature}" class="media-full-img" style="max-height:150px; background:#fff;">` : '<div class="section-content">서명이 등록되지 않았습니다.</div>'}
-                </div>
-            </div>
-        </div>
-    `;
+    // 2. 수동 추가 위험요인 처리
+    currentState.manualHazards.forEach(hazard => {
+        const key = hazard.id;
+        const stepName = hazard.stepName;
+        const riskData = currentState.riskMatrixData[key] || { current: { score: 1 }, residual: { score: 1 } };
+        
+        const currentMeasures = (currentState.manualHazardItems[key]?.current || []).filter((_, idx) => currentState.checkedMeasures.has(`${key}-mc-${idx}`));
+        if (currentState.manualNotes[key]?.current) currentMeasures.push(`(추가의견) ${currentState.manualNotes[key].current}`);
+        
+        const improveMeasures = (currentState.manualHazardItems[key]?.improve || []).filter((_, idx) => currentState.improvedMeasures.has(`${key}-mi-${idx}`));
+        if (currentState.manualNotes[key]?.improvement) improveMeasures.push(`(추가의견) ${currentState.manualNotes[key].improvement}`);
+
+        logs.push({
+            부서명: currentState.selectedDept,
+            작업명: currentState.selectedTask,
+            점검자: workerName,
+            작업단계: stepName,
+            위험요인: hazard.hazardName,
+            현재안전조치: currentMeasures.join('\n') || "이상 없음 (양호)",
+            개선대책: improveMeasures.join('\n') || "추가 개선사항 없음",
+            현재_위험도: riskData.current.score,
+            잔류_위험도: riskData.residual.score,
+            종합개선의견: document.getElementById('overall-improvement')?.value || ""
+        });
+    });
+
+    return logs;
 }
 
 function nextStep(step) {
@@ -1708,12 +1734,10 @@ function updateNextButton(totalInStep) {
     const container = document.getElementById('next-action-container');
     if (!container) return;
 
-    // 현재 단계의 모든 위험요인 가져오기 (이미 렌더링 시 필터링된 count 사용)
     const currentCheckedCount = Array.from(currentState.checkedItems).filter(key => 
-        key.startsWith(`${getHash(currentState.selectedTask)}-${getHash(currentState.selectedStep)}`)
+        key.startsWith(`${getHash(currentState.selectedTask || "")}-${getHash(currentState.selectedStep || "")}`)
     ).length;
     
-    // [개선] 모든 항목 체크 의무화 해제 및 이전/다음 유연한 네비게이션
     const isFirstStep = currentState.currentStepIndex === 0;
     const isLastStep = currentState.currentStepIndex === currentState.availableSteps.length - 1;
     
@@ -1721,13 +1745,11 @@ function updateNextButton(totalInStep) {
     const prevBtnText = "<i data-lucide='arrow-left'></i> 이전단계";
     const totalSteps = currentState.availableSteps.length;
     const currentStepNum = currentState.currentStepIndex + 1;
-    // 다음 단계 번호 표시 (마지막 단계가 아니면 +1, 마지막이면 현재 번호 유지)
     const nextStepDisplay = isLastStep ? currentStepNum : currentStepNum + 1;
     const progressText = `(${nextStepDisplay} / ${totalSteps} 단계)`;
 
     container.innerHTML = `
         <div class="next-action-area active" style="margin-top:2rem; display: flex; flex-direction: column; gap: 12px; animation: fadeInUp 0.5s ease-out;">
-            <!-- 단계 이동 버튼 그룹 -->
             <div style="display: grid; grid-template-columns: ${isFirstStep ? '1fr' : '1fr 1fr'}; gap: 10px;">
                 ${!isFirstStep ? `
                     <button class="btn btn-secondary" 
@@ -1744,7 +1766,6 @@ function updateNextButton(totalInStep) {
                 </button>
             </div>
 
-            <!-- 처음으로 버튼 (대시보드) -->
             <button class="btn btn-secondary-outline" 
                     style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; background:#ffffff; border:1px solid #e2e8f0; color:#1e293b; font-weight:800; font-family:'Outfit', sans-serif;" 
                     onclick="location.reload()">
@@ -1756,13 +1777,11 @@ function updateNextButton(totalInStep) {
 }
 
 function initEventListeners() {
-    // 1단계 부서 선택 -> 작업 목록 팝업
     document.getElementById('task-select')?.addEventListener('change', (e) => {
         currentState.selectedDept = e.target.value;
         if (e.target.value) populateTasks(e.target.value);
     });
 
-    // 1단계 작업명 선택 -> 초기화
     document.getElementById('step1-task-select')?.addEventListener('change', (e) => {
         currentState.selectedTask = e.target.value;
     });
@@ -1771,69 +1790,20 @@ function initEventListeners() {
         currentState.selectedWorker = e.target.value;
     });
 
-    document.getElementById('photo-input')?.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (f) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // 최대 가로 크기 800px로 제한 (용량 최적화)
-                    const maxW = 800;
-                    let w = img.width;
-                    let h = img.height;
-                    
-                    if (w > maxW) {
-                        h = h * (maxW / w);
-                        w = maxW;
-                    }
-                    
-                    canvas.width = w;
-                    canvas.height = h;
-                    ctx.drawImage(img, 0, 0, w, h);
-                    
-                    // JPEG 형식으로 화질 0.5(50%) 압축 (최저 용량 지향)
-                    const optimizedData = canvas.toDataURL('image/jpeg', 0.5);
-                    
-                    currentState.photoBase64 = optimizedData;
-                    const preview = document.getElementById('photo-preview');
-                    if (preview) {
-                        preview.innerHTML = `<img src="${optimizedData}" style="width:100%; border-radius:20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">`;
-                    }
-                };
-                img.src = f.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    document.getElementById('clear-signature')?.addEventListener('click', () => signaturePad.clear());
 }
 
 async function submitLog() {
-    const workerNames = currentState.selectedWorkers.length > 0 ? currentState.selectedWorkers.join(', ') : '';
-    if (!workerNames) { 
-        showToast("⚠️ 평가자 성명을 1단계 상단에서 추가해 주세요."); 
-        switchPhase('step-1');
-        return; 
-    }
-    if (signaturePad.isEmpty()) { showToast("⚠️ 본인 서명이 필요합니다."); return; }
-    
     const today = new Date().toLocaleDateString('ko-KR');
     const overlay = document.getElementById('loading-overlay');
     const loadingText = overlay ? overlay.querySelector('p') : null;
+    
     if (loadingText) loadingText.innerText = "데이터를 처리 중입니다...";
     if (overlay) overlay.classList.add('active');
 
-    // 1. 실시로그용 데이터 생성
     const logs = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
         if (parts.length < 3) return null;
         
-        // 정규화된 해시를 사용하여 정확한 리스크 객체 찾기
         const r = currentState.risks.find(risk => 
             getHash(risk.작업명 || "") === parts[0] &&
             getHash(risk.작업단계 || "") === parts[1] &&
@@ -1848,27 +1818,22 @@ async function submitLog() {
         };
         
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
-        
-        // [수정] 표준 현재안전조치 컬럼 참조 (기존엔 개선대책을 참조하여 undefined가 발생함)
         const currentMeasuresMaster = Array.isArray(r.현재안전조치) ? r.현재안전조치 : (r.현재안전조치 ? [r.현재안전조치] : []);
         const improvementMeasuresMaster = Array.isArray(r.개선대책) ? r.개선대책 : (r.개선대책 ? [r.개선대책] : []);
         
-        // 체크된 현재안전조치 텍스트 추출
         const currentChecked = [...currentMeasuresMaster.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current]
             .filter(v => v && v.trim()).join('\n');
             
-        // 체크된 개선대책 텍스트 추출
         const improvedList = [...improvementMeasuresMaster.filter((_, mi) => currentState.improvedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement]
             .filter(v => v && v.trim()).join('\n');
             
-        // [중요] 구글 시트 헤더 순서 및 필드명 최적화 (열 밀림 방지)
         return {
             department: currentState.selectedDept,
             task_name: currentState.selectedTask,
-            step_name: r.작업단계 || currentState.selectedStep, // 개별 로그의 고유 단계명 유지
+            step_name: r.작업단계 || currentState.selectedStep,
             hazard: r.위험요인,
-            current_measures: currentChecked || currentMeasuresMaster.filter(v => v).join('\n'), // [수정] 미체크 시 마스터 내용 전체 기입
-            improvements_checked: improvedList || "", // [수정] 미체크 시 빈칸 처리
+            current_measures: currentChecked || currentMeasuresMaster.filter(v => v).join('\n'),
+            improvements_checked: improvedList || "",
             current_frequency: riskData.current.frequency,
             current_severity: riskData.current.severity,
             current_score: riskData.current.score,
@@ -1878,38 +1843,7 @@ async function submitLog() {
         };
     }).filter(Boolean);
 
-    // 2. 개선대책 실행계획서용 데이터 생성
-    const improvementPlan = Array.from(currentState.checkedItems).map(key => {
-        const parts = key.split('-');
-        const r = currentState.risks.find(risk => getHash(risk.작업명) === parts[0] && getHash(risk.작업단계) === parts[1] && getHash(risk.위험요인) === parts[2]);
-        if (!r) return null;
-
-        const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
-        const riskData = currentState.riskMatrixData[key];
-        const measuresMaster = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
-        
-        // 개선이 필요한 항목인지 판단
-        const currentMeasuresChecked = measuresMaster.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`));
-        const needsImprovement = mNotes.improvement.trim() !== "" || (riskData && riskData.current.score >= 9) || (currentMeasuresChecked.length < measuresMaster.length);
-        if (!needsImprovement) return null;
-
-        // 개선대책 텍스트 병합
-        const improvements = [...measuresMaster.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
-        
-        // [사진 추출] 해당 위험요인(key)과 연결된 Phase 3의 사진들 중 첫 번째 것을 가져옴
-        const itemPhotoKey = Array.from(currentState.improvedMeasures).find(mKey => mKey.startsWith(key));
-        const itemPhoto = itemPhotoKey ? currentState.improvementResults[itemPhotoKey]?.photo : null;
-
-        return { 
-            department: currentState.selectedDept, 
-            task_name: currentState.selectedTask, 
-            hazard: r.위험요인, 
-            improvement_measure: improvements || "현재 조치 완료 및 유지관리", 
-            improvement_date: today, 
-            manager: workerNames,
-            photo: itemPhoto // 개별 사진 포함
-        };
-    }).filter(Boolean);
+    const workerNames = currentState.selectedWorkers.length > 0 ? currentState.selectedWorkers.join(', ') : currentState.selectedWorker || '';
 
     const payload = {
         worker: workerNames,
@@ -1917,21 +1851,11 @@ async function submitLog() {
         task: currentState.selectedTask,
         step: currentState.selectedStep,
         logs: logs,
-        improvement_plan: improvementPlan,
+        improvement_plan: [], 
         overall_improvement: document.getElementById('overall-improvement')?.value || "",
-        photo: currentState.photoBase64,
-        signature: signaturePad.toDataURL()
+        photo: currentState.photoBase64 || "",
+        signature: typeof signaturePad !== 'undefined' && !signaturePad.isEmpty() ? signaturePad.toDataURL() : ""
     };
-
-    // [전략 변경] 오프라인 상태일 경우 즉시 큐에 저장
-    if (!navigator.onLine) {
-        queueSubmission(payload);
-        overlay.classList.remove('active');
-        showToast("📡 오프라인: 평가 내용이 기기에 저장되었습니다. (통신 연결 시 자동 전송)");
-        saveToHistory(payload); // 히스토리는 오프라인에서도 저장
-        setTimeout(() => location.reload(), 2000);
-        return;
-    }
 
     try {
         if (loadingText) loadingText.innerText = "데이터를 전송 중입니다...";
@@ -1942,129 +1866,87 @@ async function submitLog() {
             headers: { 'Content-Type': 'text/plain' }
         });
 
-        saveToHistory(payload);
+        showToast("✅ 전송 완료되었습니다.");
         setTimeout(() => {
             overlay.classList.remove('active');
-            showToast("✅ 전송 완료되었습니다.");
-            setTimeout(() => location.reload(), 2000);
-        }, 1500);
+            location.reload();
+        }, 2000);
 
     } catch (error) {
-        console.warn("⚠️ 전송 실패 (오프라인 저장 시도):", error);
+        console.warn("⚠️ 전송 실패:", error);
         queueSubmission(payload);
-        saveToHistory(payload);
         overlay.classList.remove('active');
-        showToast("📂 전송 오류로 내용을 로컬에 백업했습니다. (연결 시 자동 재시도)");
+        showToast("📂 오프라인 상태이거나 오류가 발생하여 내용을 로컬에 대기열에 저장했습니다.");
         setTimeout(() => location.reload(), 2500);
     }
 }
 
-// [NEW] 오프라인 전송 큐 관리
 function queueSubmission(payload) {
-    const queue = JSON.parse(localStorage.getItem('kosha_pending_queue') || '[]');
+    const queue = JSON.parse(localStorage.getItem('kosha_sync_queue') || '[]');
     queue.push({
         id: Date.now(),
-        payload: payload
+        payload: payload,
+        retryCount: 0
     });
-    localStorage.setItem('kosha_pending_queue', JSON.stringify(queue));
-    updateConnectionStatusUI();
+    localStorage.setItem('kosha_sync_queue', JSON.stringify(queue));
 }
 
-// [NEW] 동기화 로직
 async function syncPendingSubmissions() {
-    const queue = JSON.parse(localStorage.getItem('kosha_pending_queue') || '[]');
-    if (queue.length === 0 || !navigator.onLine) return;
+    if (!navigator.onLine) return;
+    const queue = JSON.parse(localStorage.getItem('kosha_sync_queue') || '[]');
+    if (queue.length === 0) return;
 
-    console.log(`📡 동기화 시작: ${queue.length}건 대기 중`);
-    showToast(`🔄 연결 복구: 대기 중인 ${queue.length}건을 전송합니다...`);
-
-    const newQueue = [];
-    for (const item of queue) {
+    for (let i = 0; i < queue.length; i++) {
         try {
             await fetch(GAS_URL, {
                 method: "POST",
                 mode: "no-cors",
-                body: JSON.stringify(item.payload),
+                body: JSON.stringify(queue[i].payload),
                 headers: { 'Content-Type': 'text/plain' }
             });
-            console.log(`✅ 성공: ${item.id} 전송 완료`);
+            queue.splice(i, 1);
+            i--;
         } catch (e) {
-            console.error(`❌ 실패: ${item.id} 전송 오류`, e);
-            newQueue.push(item); // 실패한 건 다시 큐에 유지
+            console.error("Sync failed for item", queue[i].id);
         }
     }
-    
-    localStorage.setItem('kosha_pending_queue', JSON.stringify(newQueue));
-    updateConnectionStatusUI();
-    if (newQueue.length === 0) {
-        showToast("✅ 모든 대기 데이터가 전송되었습니다.");
-    }
+    localStorage.setItem('kosha_sync_queue', JSON.stringify(queue));
 }
 
-// [NEW] 네트워크 상태 UI 업데이트
-function updateConnectionStatusUI() {
-    const isOnline = navigator.onLine;
-    const queue = JSON.parse(localStorage.getItem('kosha_pending_queue') || '[]');
-    const indicator = document.getElementById('network-indicator');
-    if (!indicator) return;
-
-    if (!isOnline) {
-        indicator.innerHTML = `<span class="status-offline"><i data-lucide="wifi-off"></i> 오프라인</span>`;
-    } else if (queue.length > 0) {
-        indicator.innerHTML = `<span class="status-sync"><i data-lucide="refresh-cw"></i> 대기 ${queue.length}건</span>`;
-    } else {
-        indicator.innerHTML = `<span class="status-online"><i data-lucide="wifi"></i> 온라인</span>`;
-    }
-    if (window.lucide) window.lucide.createIcons();
-}
-
-// 이벤트 리스너 등록
-window.addEventListener('online', syncPendingSubmissions);
-window.addEventListener('offline', updateConnectionStatusUI);
-document.addEventListener('DOMContentLoaded', () => {
-    // 5초마다 동기화 시도 (혹시 온라인 이벤트가 누락될 경우 대비)
-    setInterval(syncPendingSubmissions, 10000);
-    updateConnectionStatusUI();
-});
 function showToast(msg) {
     const toast = document.getElementById('toast');
+    if(!toast) return;
     toast.textContent = msg;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-function updateDate() {
-    const el = document.getElementById('current-date');
-    if (!el) return;
-    const now = new Date();
-    el.textContent = now.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
-}
-// [NEW] 위험성평가 결과 조회 기능 (Phase: Results)
+// --- 결과 조회 시스템 (카드형 UI 엔진) ---
+
 async function openResultsView() {
     const overlay = document.getElementById('loading-overlay');
-    if(overlay) overlay.classList.add('active');
+    if(overlay) {
+        overlay.querySelector('p').innerText = "최신 기록을 불러오는 중...";
+        overlay.classList.add('active');
+    }
     
     try {
         const response = await fetchJSONP(GAS_URL + "?type=logs");
         if (Array.isArray(response)) {
             currentState.allLogs = response;
-            
-            // 부서 목록 중복 제거 및 필터링
-            const depts = [...new Set(response.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d);
+            const depts = [...new Set(response.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
             const deptSelect = document.getElementById('result-dept-select');
             if (deptSelect) {
                 deptSelect.innerHTML = '<option value="">부서를 선택하세요</option>' + 
                     depts.map(d => `<option value="${d}">${d}</option>`).join('');
             }
-            
             switchPhase('step-results');
-            resetResultsView(); // 데이터 유실 방지 및 초기화
+            resetResultsView();
         } else {
-            showToast("데이터 형식 오류: 로그를 불러올 수 없습니다.");
+            showToast("⚠️ 데이터를 불러올 수 없습니다.");
         }
     } catch (error) {
-        console.error("로그 로드 실패:", error);
-        showToast("⚠️ 실시간 로그 데이터를 불러오는데 실패했습니다.");
+        showToast("⚠️ 데이터 로드 실패. 네트워크 상태를 확인하세요.");
     } finally {
         if(overlay) overlay.classList.remove('active');
     }
@@ -2074,8 +1956,10 @@ function resetResultsView() {
     document.getElementById('result-search-form').style.display = 'block';
     document.getElementById('result-detail-viewer').style.display = 'none';
     document.getElementById('results-empty-state').style.display = 'block';
-    document.getElementById('result-task-select').innerHTML = '<option value="">작업을 선택하세요</option>';
-    document.getElementById('result-dept-select').value = "";
+    const taskSelect = document.getElementById('result-task-select');
+    if (taskSelect) taskSelect.innerHTML = '<option value="">작업을 선택하세요</option>';
+    const deptSelect = document.getElementById('result-dept-select');
+    if (deptSelect) deptSelect.value = "";
 }
 
 function updateResultTasks() {
@@ -2083,116 +1967,178 @@ function updateResultTasks() {
     const taskSelect = document.getElementById('result-task-select');
     if (!selectedDept || !taskSelect) return;
     
-    const tasks = [...new Set(currentState.allLogs
+    const taskOptions = currentState.allLogs
         .filter(log => (log.부서명 || log.소속) === selectedDept)
-        .map(log => log.작업명 || "제목 없음")
-    )].filter(t => t);
+        .map(log => ({
+            name: log.작업명 || "제목 없음",
+            date: log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상"
+        }));
+
+    const uniqueTasks = [];
+    const seen = new Set();
+    taskOptions.forEach(t => {
+        const key = `${t.name}-${t.date}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            uniqueTasks.push(t);
+        }
+    });
     
     taskSelect.innerHTML = '<option value="">작업을 선택하세요</option>' + 
-        tasks.map(t => `<option value="${t}">${t}</option>`).join('');
-    
-    document.getElementById('results-empty-state').style.display = 'block';
-    document.getElementById('result-detail-viewer').style.display = 'none';
+        uniqueTasks.map(t => `<option value="${t.name}">${t.date} | ${t.name}</option>`).join('');
 }
 
 function showResultDetail() {
     const dept = document.getElementById('result-dept-select').value;
     const task = document.getElementById('result-task-select').value;
-    if (!dept || !task) return;
+    if (!dept || !task) {
+        showToast("⚠️ 부서와 작업을 선택하세요.");
+        return;
+    }
 
     const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept && log.작업명 === task);
-    if (filteredLogs.length === 0) return;
+    if (filteredLogs.length === 0) {
+        showToast("❌ 데이터를 찾을 수 없습니다.");
+        return;
+    }
 
-    // UI 전환
     document.getElementById('result-search-form').style.display = 'none';
     document.getElementById('result-detail-viewer').style.display = 'block';
     document.getElementById('results-empty-state').style.display = 'none';
     
-    renderReportToViewer(filteredLogs);
-    initLucide();
+    renderDetailedCardReport(filteredLogs, 'pdf-content-area', false);
 }
 
-function renderReportToViewer(logs) {
-    const container = document.getElementById('pdf-content-area');
+
+
+// [CORE] 통합 고도화 렌더링 엔진 (v25.0)
+function renderDetailedCardReport(logs, containerId, isPreview = false) {
+    const container = document.getElementById(containerId);
     if (!container) return;
+
+    if (logs.length === 0) {
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">데이터가 없습니다.</div>';
+        return;
+    }
 
     const first = logs[0];
     const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    // HTML 보고서 템플릿 생성 (시트 헤더와 정확히 매핑: 점검자, 부서명, 작업명 등)
+    // 단계별(Step Name)로 로그 그룹화
+    const groupedLogs = logs.reduce((acc, log) => {
+        const step = log.작업단계 || "점검 단계";
+        if (!acc[step]) acc[step] = [];
+        acc[step].push(log);
+        return acc;
+    }, {});
+
+    const getReportScoreBadge = (score) => {
+        let color = '#059669', bg = '#ecfdf5', border = '#a7f3d0';
+        if (score >= 13) { color = '#e11d48'; bg = '#fff1f2'; border = '#fda4af'; }
+        else if (score >= 9) { color = '#ef4444'; bg = '#fef2f2'; border = '#fecaca'; }
+        else if (score >= 4) { color = '#d97706'; bg = '#fffbeb'; border = '#fde68a'; }
+        return `<span style="padding:4px 10px; border-radius:10px; font-weight:900; font-size:0.85rem; color:${color}; background:${bg}; border:1.5px solid ${border}; display:inline-block; min-width:30px; text-align:center;">${score}</span>`;
+    };
+
     let html = `
-        <div style="text-align: center; margin-bottom: 30px;">
-            <div style="font-size: 0.9rem; color: var(--doing-blue); font-weight: 800; margin-bottom: 8px;">KOSHA SMART SAFETY REPORT</div>
-            <h1 style="font-size: 2.2rem; color: #1e293b; margin-bottom: 5px; font-weight: 900; letter-spacing: -1px;">위험성평가 실시 결과 보고서</h1>
-            <p style="color: #64748b; font-size: 1rem;">본 보고서는 실시간 스마트 안전 점검 시스템을 통해 생성된 공식 문서입니다.</p>
+        <div style="text-align: center; margin-bottom: 35px; padding-bottom: 25px; border-bottom: 3px double #e2e8f0; position: relative;">
+            <div style="position: absolute; top: 0; right: 0; font-size: 0.6rem; color: #cbd5e1; font-weight: 700;">v25.0</div>
+            <div style="font-size: 0.85rem; color: var(--doing-blue); font-weight: 800; margin-bottom: 10px; letter-spacing: 3px; text-transform: uppercase;">
+                ${isPreview ? "PRE-SUBMISSION REVIEW" : "KOSHA SMART SAFETY RECORD"}
+            </div>
+            <h1 style="font-size: 1.8rem; color: #1e293b; margin: 0; font-weight: 900; letter-spacing: -1px;">
+                ${isPreview ? "위험성평가 결과 미리보기" : "위험성평가 결과 조회 보고서"}
+            </h1>
+            <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b; font-weight: 500;">
+                ${isPreview ? "제출 전 내용을 최종 확인해 주세요." : "본 보고서는 시스템을 통해 전송된 실시간 점검 기록입니다."}
+            </div>
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 0.95rem; border: 2px solid #e2e8f0;">
-            <tr>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; width: 20%; text-align: center; color: #475569;">부서명</th>
-                <td style="border: 1px solid #e2e8f0; padding: 14px; width: 30%; font-weight: 600;">${first.부서명 || first.소속 || "미지정"}</td>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; width: 20%; text-align: center; color: #475569;">작업명</th>
-                <td style="border: 1px solid #e2e8f0; padding: 14px; width: 30%; font-weight: 600;">${first.작업명 || "내용 없음"}</td>
-            </tr>
-            <tr>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; text-align: center; color: #475569;">평가자(점검자)</th>
-                <td style="border: 1px solid #e2e8f0; padding: 14px; font-weight: 600;">${first.점검자 || first.평가자 || "미지정"}</td>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; text-align: center; color: #475569;">평가 일자</th>
-                <td style="border: 1px solid #e2e8f0; padding: 14px; font-weight: 600;">${first.일시 ? new Date(first.일시).toLocaleDateString() : today}</td>
-            </tr>
-        </table>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 20px; border: 1.5px solid #e2e8f0; margin-bottom: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.9rem;">
+            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">부서명:</span> <span style="color: #1e293b; font-weight: 800;">${first.부서명 || first.소속 || "미지정"}</span></div>
+            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">작업명:</span> <span style="color: #1e293b; font-weight: 800;">${first.작업명 || "내용 없음"}</span></div>
+            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">점검자:</span> <span style="color: #1e293b; font-weight: 800;">${first.점검자 || first.평가자 || "미지정"}</span></div>
+            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">${isPreview ? '평가일자' : '조회일시'}:</span> <span style="color: #1e293b; font-weight: 800;">${isPreview ? today : (first.일시 ? new Date(first.일시).toLocaleDateString() : today)}</span></div>
+        </div>
 
-        <h3 style="color: #0f172a; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: 800;">
-            <span style="width: 6px; height: 22px; background: var(--doing-blue); display: inline-block; border-radius: 3px;"></span>
-            상세 점검 요인 및 평가 결과
-        </h3>
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            ${Object.keys(groupedLogs).map((stepName, stepIdx) => `
+                <div class="step-group">
+                    <div style="background: #1e293b; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; margin-bottom: 15px; display: inline-flex; align-items: center; gap: 8px;">
+                        <span style="background: rgba(255,255,255,0.2); width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.7rem;">${stepIdx + 1}</span>
+                        ${stepName}
+                    </div>
 
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 40px; border: 1px solid #e2e8f0;">
-            <thead>
-                <tr style="background: #1e293b; color: white;">
-                    <th style="border: 1px solid #334155; padding: 12px; width: 15%;">작업단계</th>
-                    <th style="border: 1px solid #334155; padding: 12px; width: 20%;">위험요인</th>
-                    <th style="border: 1px solid #334155; padding: 12px; width: 25%;">현재 안전조치</th>
-                    <th style="border: 1px solid #334155; padding: 12px; width: 25%;">추가 개선대책</th>
-                    <th style="border: 1px solid #334155; padding: 12px; width: 15%;">위험도<br>(현재/잔류)</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${logs.map(l => `
-                    <tr>
-                        <td style="border: 1px solid #e2e8f0; padding: 12px; font-weight: 600; background: #fdfdfd;">${l.작업단계 || "-"}</td>
-                        <td style="border: 1px solid #e2e8f0; padding: 12px; color: #334155;">${l.위험요인 || "-"}</td>
-                        <td style="border: 1px solid #e2e8f0; padding: 12px; font-size: 0.75rem; white-space: pre-line;">${l.현재안전조치 || "이상 없음"}</td>
-                        <td style="border: 1px solid #e2e8f0; padding: 12px; font-size: 0.75rem; color: #b91c1c; white-space: pre-line;">${l.개선대책 || "-"}</td>
-                        <td style="border: 1px solid #e2e8f0; padding: 12px; text-align: center;">
-                            <div style="font-weight: 700; color: #64748b; font-size: 0.7rem;">${l.현재_위험도 || "-"}</div>
-                            <div style="font-weight: 800; color: ${parseInt(l.잔류_위험도) >= 9 ? '#e11d48' : '#059669'}; font-size: 1.1rem; margin-top: 2px;">
-                                ${l.잔류_위험도 || "-"}
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        ${groupedLogs[stepName].map((l, lIdx) => {
+                            const curScore = parseInt(l.현재_위험도 || l.현재위험도) || 0;
+                            const resScore = parseInt(l.잔류_위험도 || l.잔류위험도) || 0;
+
+                            return `
+                            <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
+                                <div style="background: #f8fafc; padding: 12px 18px; border-bottom: 1.5px solid #f1f5f9; font-weight: 800; color: #475569; font-size: 0.9rem;">
+                                    <span style="color: var(--doing-blue);">항목 ${lIdx + 1}.</span> ${l.위험요인 || "내용 없음"}
+                                </div>
+                                
+                                <div style="padding: 15px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                    <div style="border-right: 1px dashed #e2e8f0; padding-right: 15px;">
+                                        <div style="font-weight: 800; color: #64748b; font-size: 0.75rem; margin-bottom: 6px;">현재 안전조치</div>
+                                        <div style="font-size: 0.85rem; color: #1e293b; line-height: 1.5; white-space: pre-line;">${l.현재안전조치 || "기본 조치 준수"}</div>
+                                        <div style="margin-top: 10px; text-align: right;">
+                                            <span style="font-size: 0.7rem; color: #94a3b8; font-weight: 700; margin-right: 4px;">위험도:</span>
+                                            ${getReportScoreBadge(curScore)}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div style="font-weight: 800; color: #059669; font-size: 0.75rem; margin-bottom: 6px;">추가 개선대책</div>
+                                        <div style="font-size: 0.85rem; color: #166534; line-height: 1.5; white-space: pre-line; background: #f0fdf4; padding: 6px; border-radius: 6px;">${l.개선대책 || "추가 조치 불필요"}</div>
+                                        <div style="margin-top: 10px; text-align: right;">
+                                            <span style="font-size: 0.7rem; color: #10b981; font-weight: 700; margin-right: 4px;">잔류 위험도:</span>
+                                            ${getReportScoreBadge(resScore)}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
 
-        <div style="margin-top: 60px; text-align: center; border-top: 2px dashed #e2e8f0; padding-top: 30px;">
-            <div style="font-weight: 900; font-size: 1.4rem; color: #1e293b; letter-spacing: 2px;">한국중부발전(주)</div>
-            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">KOMIPO SMART SAFETY SYSTEM PORTAL</p>
+        <div style="margin-top: 40px; background: #f8fafc; border: 1.5px solid #e2e8f0; padding: 25px; border-radius: 20px;">
+            <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 1.1rem; font-weight: 900; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="message-square" style="width:20px; color:var(--doing-blue);"></i> 종합 개선 조치 의견
+            </h4>
+            <div style="font-size: 0.95rem; color: #475569; line-height: 1.7; white-space: pre-line; background: white; padding: 20px; border-radius: 12px; border: 1px solid #f1f5f9;">
+                ${first.종합개선의견 || "특이사항 없음"}
+            </div>
+        </div>
+
+        <div style="margin-top: 50px; text-align: center; border-top: 2px solid #f1f5f9; padding-top: 30px;">
+            <div style="font-weight: 900; font-size: 1.5rem; color: #1e293b; letter-spacing: 5px; margin-bottom: 5px;">한국중부발전(주)</div>
+            <p style="color: #94a3b8; font-size: 0.8rem; font-weight: 700;">KOMIPO SMART SAFETY SYSTEM</p>
         </div>
     `;
-    
+
     container.innerHTML = html;
+    if (window.lucide) window.lucide.createIcons();
 }
 
 function exportResultToPDF() {
     const element = document.getElementById('pdf-content-area');
-    const taskName = document.getElementById('result-task-select').value;
+    let taskName = "위험성평가_보고서";
     
-    if (!element || !taskName) return;
+    // 시트 조회 화면인 경우
+    const selectTask = document.getElementById('result-task-select')?.value;
+    if (selectTask) taskName = selectTask;
+    // 미리보기 또는 로컬 히스토리인 경우
+    else if (currentState.selectedTask) taskName = currentState.selectedTask;
 
     const opt = {
         margin: 10,
-        filename: `위험성평가_보고서_${taskName}.pdf`,
+        filename: `${taskName.replace(/ /g, '_')}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -2203,3 +2149,6 @@ function exportResultToPDF() {
         showToast("✅ PDF 다운로드가 완료되었습니다.");
     });
 }
+
+
+

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KOMIPO | 스마트 안전 점검 시스템 v25.0</title>
+    
+    <!-- SEO & Branding -->
+    <meta name="description" content="한국중부발전 스마트 안전 점검 및 위험성 평가 시스템">
+    <meta name="theme-color" content="#00aeef">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        /* CSS 통합 버전 (v25.0) */
+        :root {
+            --doing-indigo: #4f46e5;
+            --doing-indigo-glow: rgba(79, 70, 229, 0.4);
+            --doing-blue: #0ea5e9;
+            --doing-blue-glow: rgba(14, 165, 233, 0.3);
+            --doing-purple: #8b5cf6;
+            --doing-accent: #f43f5e;
+            --doing-success: #10b981;
+            --doing-gold: #f59e0b;
+            --bg-main: #f8fafc;
+            --bg-glass: rgba(255, 255, 255, 0.85);
+            --bg-glass-deep: rgba(255, 255, 255, 0.95);
+            --bg-gradient: radial-gradient(at 0% 0%, #f1f5f9 0, transparent 50%), 
+                          radial-gradient(at 50% 0%, #e0f2fe 0, transparent 50%), 
+                          radial-gradient(at 100% 0%, #eef2ff 0, transparent 50%);
+            --shadow-sm: 0 4px 10px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 50px -12px rgba(15, 23, 42, 0.12);
+            --radius-lg: 24px;
+            --radius-xl: 32px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+        body { background: var(--bg-gradient); background-attachment: fixed; color: #1e293b; font-family: 'Inter', sans-serif; letter-spacing: -0.4px; }
+        .app-shell { min-height: 100vh; display: flex; justify-content: center; }
+        .mobile-frame { width: 100%; max-width: 480px; background: var(--bg-glass-deep); backdrop-filter: blur(40px); min-height: 100vh; position: relative; padding: 0 20px 120px 20px; box-shadow: 0 0 120px rgba(15, 23, 42, 0.08); }
+        
+        .doing-header { display: flex; justify-content: space-between; align-items: center; padding: 1.4rem 1.75rem; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; z-index: 1100; margin: 0 -20px; }
+        .logo-area h1 { color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px; }
+        
+        .main-banner { position: relative; width: calc(100% + 40px); margin: 0 -20px; height: 200px; overflow: hidden; border-radius: 0 0 32px 32px; }
+        .main-banner img { width: 100%; height: 100%; object-fit: cover; }
+        .banner-overlay { position: absolute; bottom: 20px; left: 24px; color: white; }
+        .banner-overlay h2 { font-size: 1.8rem; font-weight: 900; text-shadow: 0 2px 10px rgba(0,0,0,0.5); line-height: 1.2; }
+        
+        .doing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 2rem 0; }
+        .grid-card { background: white; border-radius: 24px; padding: 1.2rem 0.5rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; box-shadow: var(--shadow-sm); transition: 0.3s; border: 1px solid #f1f5f9; }
+        .grid-card:active { transform: scale(0.95); }
+        .icon-box { width: 50px; height: 50px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+        .icon-box i { width: 24px; height: 24px; color: white; }
+        .grid-card span { font-size: 0.8rem; font-weight: 800; color: #475569; text-align: center; line-height: 1.2; }
+
+        /* Color Variants for Dashboard Icons */
+        .color-blue { background: #3b82f6; }
+        .color-cyan { background: #06b6d4; }
+        .color-purple { background: #8b5cf6; }
+        .color-orange { background: #f97316; }
+        .color-pink-light { background: #f472b6; }
+        .color-blue-light { background: #60a5fa; }
+        .color-teal { background: #14b8a6; }
+        .color-green { background: #10b981; }
+        .color-orange-light { background: #fb923c; }
+
+        .stepper-container { margin: 1.5rem -20px 0; padding: 1rem 20px; background: white; border-bottom: 1px solid #f1f5f9; }
+        .step-progress-bar { height: 4px; background: #f1f5f9; border-radius: 2px; position: relative; margin-bottom: 15px; }
+        .progress-fill { height: 100%; background: var(--doing-blue); width: 25%; transition: 0.5s; border-radius: 2px; }
+        .step-nodes { display: flex; justify-content: space-between; }
+        .step-node { display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0.4; transition: 0.3s; }
+        .step-node.active { opacity: 1; }
+        .step-node span { width: 20px; height: 20px; background: #64748b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; }
+        .step-node.active span { background: var(--doing-blue); }
+        .step-node label { font-size: 11px; font-weight: 700; color: #64748b; }
+
+        .phase { display: none; padding-top: 1.5rem; }
+        .phase.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+        .section-header h2 { font-size: 1.4rem; font-weight: 900; color: #1e293b; margin-bottom: 4px; }
+        .section-header p { font-size: 0.9rem; color: #64748b; margin-bottom: 1.5rem; }
+
+        .ui-input, .ui-select { width: 100%; height: 52px; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0 16px; font-size: 1rem; font-weight: 600; color: #1e293b; transition: 0.3s; }
+        .ui-input:focus { outline: none; border-color: var(--doing-blue); box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1); }
+
+        /* Checklist Item Premium */
+        .check-item { background: white; border-radius: 24px; padding: 1.25rem; margin-bottom: 1rem; border: 1px solid #f1f5f9; box-shadow: var(--shadow-sm); cursor: pointer; }
+        .check-item.expanded { border-color: var(--doing-blue); }
+        .check-item-header { display: flex; align-items: center; gap: 12px; }
+        .check-indicator { width: 24px; height: 24px; border: 2px solid #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .check-item.checked .check-indicator { background: var(--doing-blue); border-color: var(--doing-blue); }
+        .check-indicator i { width: 14px; height: 14px; color: white; display: none; stroke-width: 4px; }
+        .check-item.checked .check-indicator i { display: block; }
+        .risk { flex: 1; font-size: 1.05rem; font-weight: 800; color: #1e293b; line-height: 1.3; }
+
+        .measure-container { max-height: 0; overflow: hidden; opacity: 0; transition: 0.4s; }
+        .check-item.expanded .measure-container { max-height: 1000px; opacity: 1; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f1f5f9; }
+        .measure-list { list-style: none; }
+        .measure-list li { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 0.95rem; color: #475569; line-height: 1.5; }
+        .m-checkbox { width: 18px; height: 18px; border: 2px solid #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+        .m-checkbox.active { background: var(--doing-success); border-color: var(--doing-success); }
+        .m-checkbox.active-improve { background: var(--doing-accent); border-color: var(--doing-accent); }
+        .m-checkbox i { width: 12px; height: 12px; color: white; display: none; stroke-width: 4px; }
+        .m-checkbox.active i, .m-checkbox.active-improve i { display: block; }
+
+        /* Bottom Navigation */
+        .bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: white; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-around; align-items: center; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #94a3b8; gap: 4px; cursor: pointer; }
+        .nav-item.active { color: var(--doing-blue); }
+        .nav-item i { width: 24px; height: 24px; }
+        .nav-item span { font-size: 0.7rem; font-weight: 900; }
+
+        /* Toast & Loader */
+        #toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 0.9rem; z-index: 5000; display: none; }
+        #toast.show { display: block; animation: fadeInUp 0.3s forwards; }
+        .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 6000; }
+        .overlay.active { display: flex; }
+        .loader { width: 40px; height: 40px; border: 4px solid #f1f5f9; border-top-color: var(--doing-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+        /* Assessment Card v25.0 */
+        .hazard-report-card { background: white; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 1rem; overflow: hidden; box-shadow: var(--shadow-sm); }
+        .hazard-card-header { background: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #f1f5f9; font-weight: 800; color: #475569; position: relative; }
+        .hazard-card-body { padding: 15px 18px; }
+        .section-label { font-size: 0.7rem; font-weight: 900; color: var(--doing-blue); margin-bottom: 6px; text-transform: uppercase; }
+        .section-content { font-size: 0.85rem; color: #1e293b; line-height: 1.6; white-space: pre-line; background: #f1f5f9; padding: 10px; border-radius: 10px; }
+        .score-badge { padding: 4px 10px; border-radius: 10px; font-weight: 900; font-size: 0.8rem; display: inline-block; min-width: 32px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <div class="mobile-frame">
+            <!-- Header -->
+            <header class="doing-header">
+                <div class="logo-area">
+                    <h1>KOMIPO <span style="font-size:0.6rem; color:#94a3b8; vertical-align:middle;">v25.0</span></h1>
+                    <p style="font-size: 0.8rem; font-weight: 800; color: #64748b; margin-top: -3px;">한국중부발전 스마트 안전</p>
+                </div>
+                <div id="current-date" style="font-size: 0.8rem; font-weight: 900; color: #94a3b8;"></div>
+            </header>
+
+            <!-- Main Application Area -->
+            <main id="app">
+                <!-- Stepper UI -->
+                <div id="stepper" class="stepper-container" style="display: none;">
+                    <div class="step-progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+                    <div class="step-nodes">
+                        <div class="step-node active" data-step="1"><span>1</span><label>정보</label></div>
+                        <div class="step-node" data-step="2"><span>2</span><label>요인</label></div>
+                        <div class="step-node" data-step="3"><span>3</span><label>개선</label></div>
+                        <div class="step-node" data-step="4"><span>4</span><label>서명</label></div>
+                    </div>
+                </div>
+
+                <!-- Dashboard (Main) -->
+                <section id="dashboard" class="phase active">
+                    <div class="main-banner">
+                        <img src="https://images.unsplash.com/photo-1542382257-80dedb725088?auto=format&fit=crop&q=80&w=600" alt="Plant">
+                        <div class="banner-overlay">
+                            <h2>현장 중심의<br>실시간 위험성 평가</h2>
+                        </div>
+                    </div>
+                    <div class="doing-grid">
+                        <div class="grid-card" onclick="switchPhase('step-1')">
+                            <div class="icon-box color-blue"><i data-lucide="shield-alert"></i></div>
+                            <span>위험성<br>평가 실시</span>
+                        </div>
+                        <div class="grid-card" onclick="openResultsView()">
+                            <div class="icon-box color-green"><i data-lucide="file-search"></i></div>
+                            <span>결과 내역<br>조회</span>
+                        </div>
+                        <div class="grid-card" onclick="switchPhase('step-history')">
+                            <div class="icon-box color-orange-light"><i data-lucide="history"></i></div>
+                            <span>나의 점검<br>기록</span>
+                        </div>
+                        <div class="grid-card">
+                            <div class="icon-box color-purple"><i data-lucide="clock"></i></div>
+                            <span>작업<br>중지권</span>
+                        </div>
+                        <div class="grid-card">
+                            <div class="icon-box color-cyan"><i data-lucide="users"></i></div>
+                            <span>종사자<br>의견</span>
+                        </div>
+                        <div class="grid-card">
+                            <div class="icon-box color-pink-light"><i data-lucide="search"></i></div>
+                            <span>아차사고<br>신고</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 1: Info Selection -->
+                <section id="step-1" class="phase">
+                    <div class="section-header">
+                        <h2>평가자 및 작업 선택</h2>
+                        <p>성함을 입력하고 소속 부서와 수행 작업을 선택하세요.</p>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="font-size: 0.8rem; font-weight: 800; color: #64748b; margin-bottom: 8px; display: block;">평가자 성명</label>
+                        <input type="text" id="worker-input" class="ui-input" placeholder="성명을 입력해 주세요">
+                    </div>
+                    <div id="selection-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <!-- JS dynamic -->
+                    </div>
+                    <div style="margin-top: 2rem;">
+                        <button class="btn btn-secondary" onclick="goHome()">메인으로 돌아가기</button>
+                    </div>
+                </section>
+
+                <!-- Step 2: Risk Checklist -->
+                <section id="step-2" class="phase">
+                    <div class="section-header">
+                        <h2>위험 요인 점검</h2>
+                        <p>해당 작업의 위험 요인별 안전 조치 이행 여부를 확인하세요.</p>
+                    </div>
+                    <div id="risk-checklist"></div>
+                    <div style="margin-top: 2rem;">
+                        <button class="btn btn-primary" onclick="goToStepImprovement()">다음 단계 (개선대책)</button>
+                    </div>
+                </section>
+
+                <!-- Step 3: Improvement -->
+                <section id="step-improvement" class="phase">
+                    <div class="section-header">
+                        <h2>종합 개선 의견</h2>
+                        <p>점검 중 발견된 미흡 사항에 대한 종합적인 의견을 작성해 주세요.</p>
+                    </div>
+                    <div style="background: white; border-radius: 20px; padding: 1.5rem; border: 1px solid #f1f5f9; margin-bottom: 1.5rem;">
+                        <label style="font-size: 0.85rem; font-weight: 800; color: #64748b; margin-bottom: 10px; display: block;">종합 개선 및 조치 의견</label>
+                        <textarea id="overall-improvement" class="ui-input" style="height: 120px; padding: 15px; resize: none;" placeholder="추가적인 개선 대책이나 현장 건의사항을 입력하세요."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="switchPhase('step-4')">다음 단계 (서명 및 검토)</button>
+                </section>
+
+                <!-- Step 4: Signature & Preview -->
+                <section id="step-4" class="phase">
+                    <div class="section-header">
+                        <h2>점검 결과 최종 확인</h2>
+                        <p>아래 내용을 확인하신 후 마지막에 서명을 완료해 주세요.</p>
+                    </div>
+                    
+                    <div id="preview-results-area" style="margin-bottom: 2rem;"></div>
+
+                    <div style="background: white; border-radius: 24px; padding: 1.5rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
+                        <label style="font-size: 0.85rem; font-weight: 800; color: #64748b; margin-bottom: 10px; display: block;">평가자 서명</label>
+                        <canvas id="signature-pad" style="width: 100%; height: 180px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9;"></canvas>
+                        <div style="text-align: right; margin-top: 10px;">
+                            <button class="btn" id="clear-signature" style="height: 36px; padding: 0 16px; font-size: 0.75rem; background: #f1f5f9; color: #64748b; border: none; border-radius: 8px; font-weight: 800;">서명 지우기</button>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="submit-btn" onclick="submitLog()">최종 결과 제출하기</button>
+                </section>
+
+                <!-- Step: History -->
+                <section id="step-history" class="phase">
+                    <div class="section-header"><h2>최근 점검 기록</h2></div>
+                    <div id="history-list-container"></div>
+                    <div id="history-detail-container" style="display: none;">
+                        <button class="btn btn-secondary" onclick="closeHistoryDetail()" style="margin-bottom: 1rem;">목록으로</button>
+                        <div id="report-view-content"></div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="goHome()" style="margin-top: 2rem;">홈으로</button>
+                </section>
+
+                <!-- Step: Results Search -->
+                <section id="step-results" class="phase">
+                    <div class="section-header"><h2>위험성평가 결과 조회</h2></div>
+                    <div style="background: white; border-radius: 20px; padding: 1.5rem; border: 1px solid #f1f5f9; margin-bottom: 1.5rem;">
+                        <select id="result-dept-select" class="ui-select" style="margin-bottom: 12px;" onchange="updateResultTasks()"><option value="">부서 선택</option></select>
+                        <select id="result-task-select" class="ui-select" onchange="showResultDetail()"><option value="">작업 선택</option></select>
+                    </div>
+                    <div id="result-detail-viewer" style="display: none;">
+                        <div class="btn-group" style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <button class="btn btn-primary" onclick="exportResultToPDF()" style="flex:1; background: #e11d48;"><i data-lucide="download"></i> PDF 다운로드</button>
+                        </div>
+                        <div id="pdf-content-area" style="background: white; border-radius: 20px; padding: 20px; border: 1px solid #e2e8f0; min-height: 300px;"></div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="goHome()">돌아가기</button>
+                </section>
+            </main>
+
+            <!-- Navigation -->
+            <nav class="bottom-nav">
+                <div class="nav-item active" onclick="goHome()"><i data-lucide="home"></i><span>홈</span></div>
+                <div class="nav-item" onclick="switchPhase('step-history')"><i data-lucide="history"></i><span>기록</span></div>
+                <div class="nav-item"><i data-lucide="phone"></i><span>연락처</span></div>
+                <div class="nav-item"><i data-lucide="user"></i><span>내 정보</span></div>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Global Toast & Loading -->
+    <div id="toast"></div>
+    <div id="loading-overlay" class="overlay"><div class="loader"></div></div>
+
+    <script>
+        /**
+         * app.js 통합 로직 (v25.0)
+         * Vercel-GAS 실시간 연동 및 통합 렌더링 엔진 포함
+         */
+        
+        const currentState = {
+            currentStep: 0,
+            selectedWorkers: [],
+            selectedDept: null,
+            selectedTask: null,
+            selectedStep: null,
+            availableSteps: [],
+            currentStepIndex: 0,
+            checkedItems: new Set(),
+            checkedMeasures: new Set(),
+            improvedMeasures: new Set(),
+            riskMatrixData: {},
+            manualNotes: {},
+            signatureBase64: null,
+            incidents: {},
+            risks: [],
+            expandedHazardKeys: new Set(),
+            manualHazards: [],
+            manualHazardItems: {},
+            allLogs: []
+        };
+
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbwAkVKP9pBVqegU0TS1J7F_ARrRY4JKy3_DdZrMrOwWBscPWeBhdYXqPX1RR3bYWrZ8VA/exec";
+
+        function showLoading(show) { document.getElementById('loading-overlay').classList.toggle('active', show); }
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+        function initLucide() { if (window.lucide) window.lucide.createIcons(); }
+
+        async function fetchJSONP(url) {
+            return new Promise((resolve, reject) => {
+                const cb = 'jsonp_' + Math.round(100000 * Math.random());
+                const script = document.createElement('script');
+                window[cb] = (d) => { delete window[cb]; document.body.removeChild(script); resolve(d); };
+                script.onerror = () => { delete window[cb]; document.body.removeChild(script); reject(new Error('Fetch Failed')); };
+                const sep = url.indexOf('?') >= 0 ? '&' : '?';
+                script.src = `${url}${sep}callback=${cb}`;
+                document.body.appendChild(script);
+            });
+        }
+
+        async function fetchInitialData() {
+            showLoading(true);
+            try {
+                const data = await fetchJSONP(GAS_URL + "?type=master");
+                processMasterData(data);
+                renderDeptSelection();
+            } catch (err) {
+                showToast("데이터 로드 실패 - 인터넷 상태를 확인해 주세요.");
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        let masterDataRaw = [];
+        function processMasterData(data) {
+            masterDataRaw = data;
+            const depts = [...new Set(data.map(d => d.부서명).filter(Boolean))];
+            const sel = document.getElementById('result-dept-select');
+            depts.forEach(d => { const opt = document.createElement('option'); opt.value = d; opt.innerText = d; if(sel) sel.appendChild(opt); });
+        }
+
+        function renderDeptSelection() {
+            const container = document.getElementById('selection-container');
+            container.innerHTML = '<h3>소속 부서 선택</h3>';
+            const depts = [...new Set(masterDataRaw.map(d => d.부서명).filter(Boolean))];
+            depts.forEach(dept => {
+                const btn = document.createElement('div');
+                btn.className = 'grid-card';
+                btn.style.flexDirection = 'row'; btn.style.justifyContent = 'flex-start'; btn.style.padding = '15px 20px'; btn.style.width = '100%';
+                btn.innerHTML = `<div class="icon-box color-blue" style="width:40px; height:40px; margin:0 15px 0 0;"><i data-lucide="layers"></i></div>
+                                 <strong style="font-size:1rem;">${dept}</strong>`;
+                btn.onclick = () => selectDept(dept);
+                container.appendChild(btn);
+            });
+            initLucide();
+        }
+
+        function selectDept(dept) {
+            currentState.selectedDept = dept;
+            const container = document.getElementById('selection-container');
+            container.innerHTML = `<h3>[${dept}] 수행 작업 선택</h3>`;
+            const tasks = [...new Set(masterDataRaw.filter(d => d.부서명 === dept).map(d => d.작업명).filter(Boolean))];
+            tasks.forEach(task => {
+                const btn = document.createElement('div');
+                btn.className = 'grid-card';
+                btn.style.flexDirection = 'row'; btn.style.padding = '15px 20px'; btn.style.width = '100%';
+                btn.innerHTML = `<div class="icon-box color-green" style="width:40px; height:40px; margin:0 15px 0 0;"><i data-lucide="play"></i></div>
+                                 <strong style="font-size:1rem;">${task}</strong>`;
+                btn.onclick = () => selectTask(task);
+                container.appendChild(btn);
+            });
+            initLucide();
+        }
+
+        function selectTask(task) {
+            currentState.selectedTask = task;
+            currentState.risks = masterDataRaw.filter(d => d.부서명 === currentState.selectedDept && d.작업명 === task).map(d => ({
+                위험요인: d.위험요인,
+                작업단계: d.작업단계 || "기본",
+                개선대책: d.개선대책 ? d.개선대책.split('\n').map(s => s.trim()).filter(Boolean) : []
+            }));
+            switchPhase('step-2');
+        }
+
+        function switchPhase(phaseId, isBack = false) {
+            document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+            document.getElementById(phaseId).classList.add('active');
+            
+            const stepper = document.getElementById('stepper');
+            if (phaseId.startsWith('step-')) {
+                stepper.style.display = (phaseId === 'step-history' || phaseId === 'step-results') ? 'none' : 'block';
+                const stepNum = phaseId === 'step-1' ? 1 : (phaseId === 'step-2' ? 2 : (phaseId === 'step-improvement' ? 3 : 4));
+                updateStepper(stepNum);
+            } else {
+                stepper.style.display = 'none';
+            }
+
+            if (phaseId === 'step-4') {
+                const previewLogs = preparePreviewData();
+                renderDetailedCardReport(previewLogs, 'preview-results-area', true);
+                initSignature();
+            }
+
+            window.scrollTo(0, 0);
+        }
+
+        function updateStepper(step) {
+            const fill = document.getElementById('progress-fill');
+            fill.style.width = (step * 25) + '%';
+            document.querySelectorAll('.step-node').forEach((node, i) => {
+                node.classList.toggle('active', (i + 1) <= step);
+            });
+        }
+
+        function renderRiskChecklist() {
+            const container = document.getElementById('risk-checklist');
+            container.innerHTML = '';
+            currentState.risks.forEach((risk, i) => {
+                const key = `risk-${i}`;
+                const card = document.createElement('div');
+                card.className = `check-item ${currentState.checkedItems.has(key) ? 'checked' : ''}`;
+                card.innerHTML = `
+                    <div class="check-item-header" onclick="toggleRisk('${key}', this.parentElement)">
+                        <div class="check-indicator"><i data-lucide="check"></i></div>
+                        <div class="risk">${risk.위험요인}</div>
+                        <i data-lucide="chevron-down" class="expand-icon"></i>
+                    </div>
+                    <div class="measure-container">
+                        <ul class="measure-list">
+                            ${risk.개선대책.map((m, mi) => `
+                                <li onclick="toggleMeasure('${key}', ${mi}, this)">
+                                    <div class="m-checkbox ${currentState.checkedMeasures.has(key+'-'+mi) ? 'active' : ''}"><i data-lucide="check"></i></div>
+                                    <span>${m}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        <div style="display:flex; justify-content:space-between; margin-top:15px; background:#f8fafc; padding:10px; border-radius:12px;">
+                            <div>현재 <span class="score-badge" style="background:#fee2e2; color:#ef4444;">12</span></div>
+                            <div style="color:#94a3b8;">→</div>
+                            <div>잔류 <span class="score-badge" style="background:#dcfce7; color:#16a34a;">3</span></div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            initLucide();
+        }
+
+        function toggleRisk(key, el) { el.classList.toggle('expanded'); }
+        function toggleMeasure(rk, mi, el) {
+            const key = rk + '-' + mi;
+            const box = el.querySelector('.m-checkbox');
+            if (currentState.checkedMeasures.has(key)) {
+                currentState.checkedMeasures.delete(key);
+                box.classList.remove('active');
+            } else {
+                currentState.checkedMeasures.add(key);
+                box.classList.add('active');
+                el.closest('.check-item').classList.add('checked');
+            }
+        }
+
+        function goToStepImprovement() { switchPhase('step-improvement'); }
+
+        function preparePreviewData() {
+            const worker = document.getElementById('worker-input').value || "미지정";
+            const logs = currentState.risks.map(r => ({
+                부서명: currentState.selectedDept,
+                작업명: currentState.selectedTask,
+                점검자: worker,
+                작업단계: r.작업단계,
+                위험요인: r.위험요인,
+                현재안전조치: r.개선대책.slice(0, 2).join('\n') || "기본 조치 준수",
+                개선대책: r.개선대책.slice(2).join('\n') || "추가 개선사항 없음",
+                현재_위험도: 12,
+                잔류_위험도: 3,
+                종합개선의견: document.getElementById('overall-improvement').value || ""
+            }));
+            return logs;
+        }
+
+        function renderDetailedCardReport(logs, containerId, isPreview = false) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const today = new Date().toLocaleDateString('ko-KR');
+            const first = logs[0] || {};
+            
+            let html = `<div style="text-align:center; margin-bottom:20px; border-bottom:2px solid #f1f5f9; padding-bottom:15px;">
+                <h3 style="font-size:1.2rem; font-weight:900;">${isPreview ? "위험성평가 미리보기" : "위험성평가 보고서"}</h3>
+                <p style="font-size:0.8rem; color:#94a3b8;">${today} 점검 내역</p>
+            </div>
+            <div style="background:#f8fafc; border-radius:15px; padding:15px; margin-bottom:20px; font-size:0.85rem; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div>부서: <strong>${first.부서명 || "-"}</strong></div>
+                <div>작업: <strong>${first.작업명 || "-"}</strong></div>
+                <div>점검자: <strong>${first.점검자 || "-"}</strong></div>
+            </div>`;
+
+            logs.forEach((l, i) => {
+                html += `<div class="hazard-report-card">
+                    <div class="hazard-card-header">항목 ${i+1}. ${l.위험요인}</div>
+                    <div class="hazard-card-body">
+                        <div class="section-label">이행 안전조치</div>
+                        <div class="section-content">${l.현재안전조치}</div>
+                        <div style="margin:12px 0; border-top:1px dashed #e2e8f0;"></div>
+                        <div class="section-label" style="color:var(--doing-success);">추가 개선대책</div>
+                        <div class="section-content" style="background:#f0fdf4;">${l.개선대책}</div>
+                    </div>
+                </div>`;
+            });
+
+            if (first.종합개선의견) {
+                html += `<div style="margin-top:20px; padding:15px; background:#f1f5f9; border-radius:15px;">
+                    <div class="section-label">종합 개선 의견</div>
+                    <div style="font-size:0.9rem; font-weight:700;">${first.종합개선의견}</div>
+                </div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function initSignature() {
+            const canvas = document.getElementById('signature-pad');
+            if (canvas && !window.sigPad) {
+                window.sigPad = new SignaturePad(canvas, { backgroundColor: 'rgb(248, 250, 252)' });
+            }
+            document.getElementById('clear-signature').onclick = () => window.sigPad && window.sigPad.clear();
+        }
+
+        async function submitLog() {
+            if (window.sigPad && window.sigPad.isEmpty()) return showToast("본인 서명을 완료해 주세요.");
+            showLoading(true);
+            const logs = preparePreviewData();
+            const payload = {
+                department: currentState.selectedDept,
+                task: currentState.selectedTask,
+                worker: document.getElementById('worker-input').value,
+                overall_improvement: document.getElementById('overall-improvement').value,
+                logs: logs.map(l => ({
+                    step_name: l.작업단계,
+                    hazard: l.위험요인,
+                    current_measures: l.현재안전조치,
+                    improvements_checked: l.개선대책,
+                    current_frequency: 3, current_severity: 4, current_score: 12,
+                    residual_frequency: 1, residual_severity: 3, residual_score: 3
+                }))
+            };
+
+            try {
+                const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+                showToast("✅ 제출 완료! 감사합니다.");
+                saveToLocal(payload);
+                setTimeout(goHome, 2000);
+            } catch (err) {
+                showToast("서버 전송 오류 - 점검 기록이 로컬에 자동 저장되었습니다.");
+                saveToLocal(payload);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function saveToLocal(data) {
+            const history = JSON.parse(localStorage.getItem('inspect_history') || '[]');
+            data.timestamp = new Date().toLocaleString();
+            history.unshift(data);
+            localStorage.setItem('inspect_history', JSON.stringify(history.slice(0, 10)));
+        }
+
+        function exportResultToPDF() {
+            const el = document.getElementById('pdf-content-area');
+            const opt = { margin:10, filename:'위험성평가_보고서.pdf', html2canvas:{scale:2}, jsPDF:{unit:'mm', format:'a4'} };
+            showToast("📄 PDF 생성 중...");
+            html2pdf().set(opt).from(el).save().then(() => showToast("✅ 다운로드 완료"));
+        }
+
+        function goHome() {
+            switchPhase('dashboard');
+            document.getElementById('worker-input').value = '';
+            document.getElementById('overall-improvement').value = '';
+            currentState.checkedMeasures.clear(); currentState.checkedItems.clear();
+        }
+
+        // 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            initLucide();
+            fetchInitialData();
+            document.getElementById('current-date').innerText = new Date().toLocaleDateString();
+            renderRiskChecklist();
+        });
+    </script>
+</body>
+</html>

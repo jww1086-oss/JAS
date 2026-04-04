@@ -58,8 +58,20 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     
     // 1. '실시로그' 저장
-    const logSheet = ss.getSheetByName("실시로그");
-    if (!logSheet) throw new Error("'실시로그' 시트가 없습니다.");
+    let logSheet = ss.getSheetByName("실시로그");
+    if (!logSheet) {
+      logSheet = ss.insertSheet("실시로그");
+    }
+    
+    // 헤더가 없는 경우 자동 생성 (첫 번째 행이 비어있으면)
+    if (logSheet.getLastRow() === 0) {
+      logSheet.appendRow([
+        "일시", "부서명", "작업명", "점검자", "작업단계", "위험요인", 
+        "현재안전조치", "개선대책", "현재_빈도", "현재_강도", "현재_위험도", 
+        "잔류_빈도", "잔류_강도", "잔류_위험도", "종합개선의견"
+      ]);
+      logSheet.getRange(1, 1, 1, 15).setBackground("#f8fafc").setFontWeight("bold");
+    }
     
     data.logs.forEach(log => {
       logSheet.appendRow([
@@ -67,12 +79,17 @@ function doPost(e) {
         data.department,         // B: 부서명
         data.task,               // C: 작업명
         data.worker,             // D: 점검자
-        log.step_name,           // E: 작업단계 (개별 단계 기록으로 수정)
+        log.step_name,           // E: 작업단계
         log.hazard,              // F: 위험요인
         log.current_measures,    // G: 현재안전조치
         log.improvements_checked,// H: 개선대책
-        log.current_score,       // I: 현재_위험도
-        log.residual_score       // J: 잔류_위험도
+        log.current_frequency,   // I: 현재_빈도
+        log.current_severity,    // J: 현재_강도
+        log.current_score,       // K: 현재_위험도
+        log.residual_frequency,  // L: 잔류_빈도
+        log.residual_severity,   // M: 잔류_강도
+        log.residual_score,      // N: 잔류_위험도
+        data.overall_improvement // O: 종합개선의견
       ]);
     });
     

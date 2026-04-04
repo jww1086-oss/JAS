@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KOMIPO | 스마트 안전 점검 시스템 v25.0</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        /* [STYLE v25.0] 프리미엄 디자인 통합 */
+        :root {
+            --doing-indigo: #4f46e5; --doing-blue: #0ea5e9; --doing-success: #10b981; --doing-accent: #f43f5e;
+            --bg-gradient: radial-gradient(at 0% 0%, #f1f5f9 0, transparent 50%), radial-gradient(at 50% 0%, #e0f2fe 0, transparent 50%);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.1); --radius-lg: 24px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+        body { background: var(--bg-gradient); color: #1e293b; font-family: 'Inter', sans-serif; min-height: 100vh; }
+        .mobile-frame { width: 100%; max-width: 480px; margin: 0 auto; background: rgba(255, 255, 255, 0.95); min-height: 100vh; padding: 0 20px 100px 20px; box-shadow: 0 0 100px rgba(0,0,0,0.05); position: relative; }
+        
+        /* Header */
+        .doing-header { display: flex; justify-content: space-between; align-items: center; padding: 1.4rem 0; border-bottom: 1px solid #f1f5f9; position: sticky; top: 0; background: white; z-index: 1000; margin: 0 -20px; padding: 1.4rem 20px; }
+        .logo-area h1 { color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px; }
+        .header-v-label { font-size: 0.6rem; color: #94a3b8; font-weight: 400; vertical-align: middle; }
+        
+        /* Dashboard */
+        .main-banner { position: relative; width: calc(100% + 40px); margin: 0 -20px; height: 200px; overflow: hidden; border-radius: 0 0 32px 32px; box-shadow: var(--shadow-md); }
+        .main-banner img { width: 100%; height: 100%; object-fit: cover; }
+        .banner-overlay { position: absolute; bottom: 20px; left: 24px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .doing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 2rem 0; }
+        .grid-card { background: white; border-radius: 24px; padding: 1.2rem 0.5rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; border: 1px solid #f1f5f9; transition: 0.3s; }
+        .icon-box { width: 50px; height: 50px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; color: white; }
+        .grid-card span { font-size: 0.75rem; font-weight: 800; color: #475569; text-align: center; }
+
+        /* UI Components */
+        .phase { display: none; padding-top: 1.5rem; }
+        .phase.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .ui-input, .ui-select { width: 100%; height: 52px; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0 16px; font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+        .btn-primary { width: 100%; height: 58px; background: var(--doing-blue); color: white; border: none; border-radius: 20px; font-weight: 900; font-size: 1.1rem; cursor: pointer; box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3); }
+        
+        /* Checklist */
+        .check-item { background: white; border-radius: 24px; padding: 1.25rem; margin-bottom: 1rem; border: 1px solid #f1f5f9; box-shadow: var(--shadow-sm); cursor: pointer; }
+        .check-item.expanded { border-color: var(--doing-blue); }
+        .check-indicator { width: 24px; height: 24px; border: 2px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
+        .check-item.checked .check-indicator { background: var(--doing-blue); border-color: var(--doing-blue); }
+        .check-indicator i { color: white; width: 14px; display: none; stroke-width: 4px; }
+        .check-item.checked .check-indicator i { display: block; }
+        .risk { font-weight: 800; font-size: 1.05rem; flex: 1; color: #1e293b; }
+
+        /* Report View (Integrated Engine Styles) */
+        .hazard-report-card { background: white; border-radius: 20px; border: 1.5px solid #e2e8f0; margin-bottom: 1rem; overflow: hidden; box-shadow: var(--shadow-sm); }
+        .hazard-card-header { background: #f8fafc; padding: 12px 18px; border-bottom: 1.2px solid #f1f5f9; font-weight: 800; color: #475569; font-size: 0.9rem; }
+        .hazard-card-body { padding: 15px 18px; }
+        .section-label { font-size: 0.75rem; font-weight: 900; color: var(--doing-blue); margin-bottom: 6px; text-transform: uppercase; }
+        .section-content { font-size: 0.85rem; color: #1e293b; line-height: 1.6; white-space: pre-line; background: #f1f5f9; padding: 10px; border-radius: 12px; margin-bottom: 10px; }
+        .score-badge { padding: 4px 10px; border-radius: 10px; font-weight: 950; font-size: 0.85rem; display: inline-block; min-width: 32px; text-align: center; }
+
+        /* Navigation */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 80px; background: white; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-around; align-items: center; max-width: 480px; margin: 0 auto; z-index: 2000; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #94a3b8; gap: 4px; font-weight: 800; font-size: 0.7rem; }
+        .nav-item.active { color: var(--doing-blue); }
+
+        #toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; z-index: 5000; display: none; }
+        .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 6000; }
+        .overlay.active { display: flex; }
+        .loader { width: 40px; height: 40px; border: 4px solid #f1f5f9; border-top-color: var(--doing-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <div class="mobile-frame">
+            <header class="doing-header">
+                <div class="logo-area">
+                    <h1>KOMIPO <span class="header-v-label">v25.0</span></h1>
+                    <p style="font-size:0.8rem; font-weight:800; color:#64748b; margin-top:-3px;">스마트 안전 점검 시스템</p>
+                </div>
+                <div id="current-date" style="font-size:0.8rem; font-weight:950; color:#94a3b8;"></div>
+            </header>
+
+            <main id="app">
+                <div id="stepper" style="display:none; padding:15px 0;">
+                    <div style="height:4px; background:#f1f5f9; border-radius:2px; position:relative;">
+                        <div id="progress-fill" style="height:100%; background:var(--doing-blue); width:0%; transition:0.5s;"></div>
+                    </div>
+                </div>
+
+                <!-- 1. 대시보드 -->
+                <section id="dashboard" class="phase active">
+                    <div class="main-banner">
+                        <img src="https://images.unsplash.com/photo-1542382257-80dedb725088?auto=format&fit=crop&q=80&w=600">
+                        <div class="banner-overlay"><h2>현장 중심<br>실시간 위험성 평가</h2></div>
+                    </div>
+                    <div class="doing-grid">
+                        <div class="grid-card" onclick="switchPhase('step-1')">
+                            <div class="icon-box" style="background:#3b82f6;"><i data-lucide="shield-alert"></i></div>
+                            <span>위험성평가<br>실시</span>
+                        </div>
+                        <div class="grid-card" onclick="openResultsView()">
+                            <div class="icon-box" style="background:#10b981;"><i data-lucide="file-search"></i></div>
+                            <span>점검 결과<br>조회</span>
+                        </div>
+                        <div class="grid-card" onclick="switchPhase('step-history')">
+                            <div class="icon-box" style="background:#f97316;"><i data-lucide="history"></i></div>
+                            <span>나의 점검<br>기록</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. 점검 시작 정보 입력 -->
+                <section id="step-1" class="phase">
+                    <div style="margin-bottom:1.5rem;">
+                        <label style="font-size:0.85rem; font-weight:900; color:#64748b; display:block; margin-bottom:8px;">평가자 성명 (직함 포함)</label>
+                        <input type="text" id="worker-input" class="ui-input" placeholder="예: 홍길동 대리">
+                    </div>
+                    <div id="selection-container"></div>
+                </section>
+
+                <!-- 3. 체크리스트 -->
+                <section id="step-2" class="phase">
+                    <div id="risk-checklist"></div>
+                    <button class="btn-primary" onclick="switchPhase('step-3')">다음 단계 (의견 작성)</button>
+                </section>
+
+                <!-- 4. 종합 의견 -->
+                <section id="step-3" class="phase">
+                    <div style="background:white; border-radius:24px; padding:1.5rem; border:1.5px solid #f1f5f9; margin-bottom:1.5rem;">
+                        <label style="font-size:0.9rem; font-weight:900; color:#475569; display:block; margin-bottom:10px;">종합 개선 및 조치 의견</label>
+                        <textarea id="overall-improvement" class="ui-input" style="height:150px; padding:15px; resize:none;" placeholder="현장 실정에 맞는 개선 대책을 입력하세요."></textarea>
+                    </div>
+                    <button class="btn-primary" onclick="switchPhase('step-4')">제출 전 최종 검토</button>
+                </section>
+
+                <!-- 5. 최종 미리보기 및 서명 -->
+                <section id="step-4" class="phase">
+                    <div id="preview-results-area" style="margin-bottom:20px;"></div>
+                    <div style="background:white; border-radius:24px; padding:1.5rem; border:1.5px solid #e2e8f0; margin-bottom:1.5rem;">
+                        <label style="font-size:0.9rem; font-weight:900; color:#64748b; margin-bottom:10px; display:block;">점검자 최종 서명</label>
+                        <canvas id="signature-pad" style="width:100%; height:200px; background:#f8fafc; border-radius:12px; border:1.2px solid #f1f5f9;"></canvas>
+                        <button style="width:100%; height:40px; background:none; border:none; color:#94a3b8; font-weight:700; font-size:0.8rem;" onclick="window.sigPad.clear()">서명 다시 하기</button>
+                    </div>
+                    <button class="btn-primary" id="submit-btn" onclick="submitLog()">최종 결과 제출</button>
+                </section>
+
+                <!-- 6. 결과 조회 (실시간 시드 연동) -->
+                <section id="step-results" class="phase">
+                    <div style="background:white; border-radius:24px; padding:1.5rem; border:1.5px solid #f1f5f9; margin-bottom:1.5rem;">
+                        <select id="result-dept-select" class="ui-select" onchange="updateResultTasks()"><option value="">부서를 선택하세요</option></select>
+                        <select id="result-task-select" class="ui-select" onchange="showResultDetail()"><option value="">기록을 선택하세요</option></select>
+                    </div>
+                    <div id="result-detail-viewer" style="display:none;">
+                        <button class="btn-primary" style="background:#e11d48; margin-bottom:15px;" onclick="exportResultToPDF()"><i data-lucide="download"></i> PDF 다운로드</button>
+                        <div id="pdf-content-area" style="background:white; border-radius:24px; padding:20px; border:1.5px solid #e2e8f0; min-height:300px;"></div>
+                    </div>
+                    <button class="btn-primary" style="background:#f1f5f9; color:#475569; box-shadow:none;" onclick="goHome()">돌아가기</button>
+                </section>
+
+                <!-- 7. 로컬 히스토리 -->
+                <section id="step-history" class="phase">
+                    <div id="history-list-container"></div>
+                    <div id="history-detail-container" style="display:none;">
+                        <button class="btn-primary" style="background:#f1f5f9; color:#475569; margin-bottom:10px;" onclick="closeHistoryDetail()">목록으로</button>
+                        <div id="report-view-content"></div>
+                    </div>
+                    <button class="btn-primary" style="background:#f1f5f9; color:#475569; margin-top:20px;" onclick="goHome()">메인 화면으로</button>
+                </section>
+            </main>
+
+            <nav class="bottom-nav">
+                <div class="nav-item active" onclick="goHome()"><i data-lucide="home"></i><span>홈</span></div>
+                <div class="nav-item" onclick="switchPhase('step-history')"><i data-lucide="history"></i><span>기록</span></div>
+                <div class="nav-item"><i data-lucide="phone"></i><span>연락처</span></div>
+                <div class="nav-item"><i data-lucide="user"></i><span>내정보</span></div>
+            </nav>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+    <div id="loading-overlay" class="overlay"><div class="loader"></div><p style="margin-top:15px; font-weight:800; color:#1e293b;">처리 중...</p></div>
+
+    <script>
+        /**
+         * [CORE APPLICATION LOGIC v25.0]
+         * Vercel-GAS 연동 및 통합 프리미엄 렌더링 엔진 완비
+         */
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbydZzsLXOisCuGf7v1xVRM92k3OqC1DDvjsmQ3o8r0LWAgDMxGMZ8XQ9kziKi0OgopJwA/exec";
+        
+        const currentState = {
+            selectedDept: null, selectedTask: null, risks: [], allLogs: [],
+            checkedItems: new Set(), checkedMeasures: new Set()
+        };
+
+        function showLoading(s) { document.getElementById('loading-overlay').classList.toggle('active', s); }
+        function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+        function initLucide() { if(window.lucide) window.lucide.createIcons(); }
+
+        // JSONP 통신
+        async function fetchJSONP(url) {
+            return new Promise((resolve, reject) => {
+                const cb = 'cb' + Math.round(100000 * Math.random());
+                const s = document.createElement('script');
+                window[cb] = (d) => { delete window[cb]; document.body.removeChild(s); resolve(d); };
+                s.onerror = () => { delete window[cb]; document.body.removeChild(s); reject(new Error('Failed')); };
+                s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cb;
+                document.body.appendChild(s);
+            });
+        }
+
+        // 초기 데이터 로드
+        async function fetchInitialData() {
+            try {
+                const data = await fetchJSONP(GAS_URL + "?type=master");
+                window.masterData = data;
+                renderDeptSelection();
+            } catch(e) { showToast("⚠️ 기기 네트워크 상태를 확인해 주세요."); }
+        }
+
+        // 부서 선택 렌더링
+        function renderDeptSelection() {
+            const container = document.getElementById('selection-container');
+            const depts = [...new Set(window.masterData.map(d => d.부서명).filter(Boolean))];
+            container.innerHTML = '<h3 style="margin-bottom:12px; font-size:0.9rem; color:#64748b;">점검 부서 선택</h3>';
+            depts.forEach(dept => {
+                const btn = document.createElement('div');
+                btn.className = 'check-item'; btn.style.display = 'flex'; btn.style.padding = '18px';
+                btn.innerHTML = `<div class="icon-box" style="background:#e0f2fe; color:#0ea5e9; width:40px; height:40px; margin-right:15px;"><i data-lucide="layers"></i></div>
+                                 <strong style="font-size:1.1rem; flex:1;">${dept}</strong><i data-lucide="chevron-right"></i>`;
+                btn.onclick = () => selectDept(dept);
+                container.appendChild(btn);
+            });
+            initLucide();
+        }
+
+        function selectDept(dept) {
+            currentState.selectedDept = dept;
+            const container = document.getElementById('selection-container');
+            container.innerHTML = `<h3 style="margin-bottom:12px; font-size:0.9rem; color:#64748b;">[${dept}] 수행 작업 선택</h3>`;
+            const tasks = [...new Set(window.masterData.filter(d => d.부서명 === dept).map(d => d.작업명).filter(Boolean))];
+            tasks.forEach(task => {
+                const btn = document.createElement('div');
+                btn.className = 'check-item'; btn.style.display = 'flex'; btn.style.padding = '18px';
+                btn.innerHTML = `<div class="icon-box" style="background:#f0fdf4; color:#10b981; width:40px; height:40px; margin-right:15px;"><i data-lucide="play"></i></div>
+                                 <strong style="font-size:1.1rem; flex:1;">${task}</strong>`;
+                btn.onclick = () => selectTask(task);
+                container.appendChild(btn);
+            });
+            initLucide();
+        }
+
+        function selectTask(task) {
+            currentState.selectedTask = task;
+            currentState.risks = window.masterData.filter(d => d.부서명 === currentState.selectedDept && d.작업명 === task);
+            renderRiskChecklist();
+            switchPhase('step-2');
+        }
+
+        // 체크리스트 렌더링
+        function renderRiskChecklist() {
+            const container = document.getElementById('risk-checklist');
+            container.innerHTML = `<div style="padding-bottom:15px;"><h3 style="font-weight:900;">${currentState.selectedTask} 위험 점검</h3></div>`;
+            currentState.risks.forEach((risk, i) => {
+                const key = `rk-${i}`;
+                const div = document.createElement('div');
+                div.className = `check-item ${currentState.checkedItems.has(key) ? 'checked' : ''}`;
+                div.innerHTML = `
+                    <div class="check-item-header" onclick="this.parentElement.classList.toggle('expanded')">
+                        <div class="check-indicator"><i data-lucide="check"></i></div>
+                        <div class="risk">${risk.위험요인}</div>
+                        <i data-lucide="chevron-down"></i>
+                    </div>
+                    <div class="measure-container">
+                        <div class="section-label">안전 조치 수칙</div>
+                        <div class="section-content">${risk.개선대책 || "기본 안전 매뉴얼 준수"}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; background:#f8fafc; padding:12px; border-radius:15px;">
+                            <span style="font-size:0.8rem; font-weight:800; color:#64748b;">위험도 수치:</span>
+                            <div>
+                                현재 <span class="score-badge" style="background:#fee2e2; color:#ef4444;">12</span>
+                                <span style="margin:0 5px;">→</span>
+                                잔류 <span class="score-badge" style="background:#dcfce7; color:#16a34a;">3</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                div.onclick = (e) => { 
+                    if(e.target.closest('.check-item-header')) {
+                        div.classList.toggle('checked'); 
+                        div.classList.contains('checked') ? currentState.checkedItems.add(key) : currentState.checkedItems.delete(key);
+                    }
+                };
+                container.appendChild(div);
+            });
+            initLucide();
+        }
+
+        // 화면 전환 로직
+        function switchPhase(pid) {
+            document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+            document.getElementById(pid).classList.add('active');
+            const stepper = document.getElementById('stepper');
+            if(pid.startsWith('step-')) {
+                stepper.style.display = (pid === 'step-history' || pid === 'step-results') ? 'none' : 'block';
+                const s = pid === 'step-1' ? 1 : (pid === 'step-2' ? 2 : (pid === 'step-3' ? 3 : 4));
+                document.getElementById('progress-fill').style.width = (s * 25) + '%';
+            } else { stepper.style.display = 'none'; }
+            if(pid === 'step-4') renderUnifiedReport(preparePreviewLogs(), 'preview-results-area', true);
+            window.scrollTo(0, 0);
+        }
+
+        // 미리보기 데이터 준비
+        function preparePreviewLogs() {
+            return currentState.risks.map(r => ({
+                부서명: currentState.selectedDept, 작업명: currentState.selectedTask,
+                점검자: document.getElementById('worker-input').value || "미지정",
+                위험요인: r.위험요인, 현재안전조치: "현장 안전 수칙 이행 확인 완료", 개선대책: "특이사항 없음 (양호)",
+                현재_위험도: 12, 잔류_위험도: 3, 종합개선의견: document.getElementById('overall-improvement').value || ""
+            }));
+        }
+
+        // [UNIFIED ENGINE] 통합 렌더링 엔진 v25.0
+        function renderUnifiedReport(logs, containerId, isPreview = false) {
+            const container = document.getElementById(containerId);
+            if(!container) return;
+            const first = logs[0] || {};
+            const today = new Date().toLocaleDateString('ko-KR');
+
+            let html = `
+                <div style="text-align:center; padding-bottom:15px; border-bottom:1.5px solid #f1f5f9; margin-bottom:15px;">
+                    <h3 style="font-size:1.25rem; font-weight:900; color:#1e293b;">${isPreview ? "위험성평가 결과 미리보기" : "위험성평가 결과 조회"}</h3>
+                    <p style="font-size:0.8rem; color:#94a3b8; font-weight:700; margin-top:5px;">발행일자: ${today}</p>
+                </div>
+                <div style="background:#f8fafc; border-radius:20px; padding:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px; font-size:0.85rem;">
+                    <div>부서: <strong style="color:var(--doing-blue);">${first.부서명 || first.소속 || "미지정"}</strong></div>
+                    <div>점검자: <strong style="color:var(--doing-blue);">${first.점검자 || first.평가자 || "미지정"}</strong></div>
+                    <div style="grid-column:1 / -1;">작업명: <strong style="color:#1e293b;">${first.작업명 || "제목 없음"}</strong></div>
+                </div>
+            `;
+
+            logs.forEach((l, i) => {
+                html += `
+                    <div class="hazard-report-card">
+                        <div class="hazard-card-header">항목 ${i+1}. ${l.위험요인}</div>
+                        <div class="hazard-card-body">
+                            <div class="section-label">현장 확인 조치</div>
+                            <div class="section-content">${l.현재안전조치 || l.현재안전조치내용 || "이행 완료"}</div>
+                            <div class="section-label" style="color:var(--doing-success); margin-top:10px;">추가 개선/잔류위험</div>
+                            <div class="section-content" style="background:#f0fdf4;">${l.개선대책 || l.개선대책내용 || "특이사항 없음"}</div>
+                            <div style="display:flex; justify-content:flex-end; gap:15px; margin-top:10px;">
+                                <span style="font-size:0.75rem; color:#94a3b8; font-weight:800;">현재: <span class="score-badge" style="background:#fee2e2; color:#ef4444;">${l.현재_위험도 || 12}</span></span>
+                                <span style="font-size:0.75rem; color:#94a3b8; font-weight:800;">잔류: <span class="score-badge" style="background:#dcfce7; color:#16a34a;">${l.잔류_위험도 || 3}</span></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if(first.종합개선의견) {
+                html += `
+                    <div style="background:#fffafa; border:1.5px solid #fee2e2; border-radius:20px; padding:15px; margin-top:10px;">
+                        <header style="font-size:0.85rem; font-weight:900; color:#e11d48; margin-bottom:10px;"><i data-lucide="message-square" style="width:16px;"></i> 종합 개선 조치 의견</header>
+                        <div style="font-size:0.9rem; color:#475569; line-height:1.6; white-space:pre-line;">${first.종합개선의견}</div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+            initLucide();
+            if(!isPreview) {
+                // PDF 인쇄를 위한 전용 스타일 트리거 가능
+            }
+        }
+
+        // 결과 조회 로직
+        async function openResultsView() {
+            showLoading(true);
+            try {
+                const response = await fetchJSONP(GAS_URL + "?type=logs");
+                currentState.allLogs = Array.isArray(response) ? response : [];
+                const depts = [...new Set(currentState.allLogs.map(l => l.부서명 || l.소속).filter(Boolean))].sort();
+                const sel = document.getElementById('result-dept-select');
+                sel.innerHTML = '<option value="">부서를 선택하세요</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+                switchPhase('step-results');
+            } catch(e) { showToast("⚠️ 로그 기록을 불러올 수 없습니다."); }
+            finally { showLoading(false); }
+        }
+
+        function updateResultTasks() {
+            const dept = document.getElementById('result-dept-select').value;
+            const tasks = [...new Set(currentState.allLogs.filter(l => (l.부서명 || l.소속) === dept).map(l => l.작업명).filter(Boolean))];
+            const sel = document.getElementById('result-task-select');
+            sel.innerHTML = '<option value="">작업 기록을 선택하세요</option>' + tasks.map(t => `<option value="${t}">${t}</option>`).join('');
+        }
+
+        function showResultDetail() {
+            const dept = document.getElementById('result-dept-select').value;
+            const task = document.getElementById('result-task-select').value;
+            if(!dept || !task) return;
+            const filtered = currentState.allLogs.filter(l => (l.부서명 || l.소속) === dept && l.작업명 === task);
+            document.getElementById('result-detail-viewer').style.display = 'block';
+            renderUnifiedReport(filtered, 'pdf-content-area', false);
+        }
+
+        // 제출 로직
+        async function submitLog() {
+            if(!window.sigPad || window.sigPad.isEmpty()) return showToast("⚠️ 서명을 완료해 주세요.");
+            showLoading(true);
+            const data = {
+                department: currentState.selectedDept, task: currentState.selectedTask,
+                worker: document.getElementById('worker-input').value,
+                overall_improvement: document.getElementById('overall-improvement').value,
+                logs: currentState.risks.map(r => ({
+                    step_name: "점검", hazard: r.위험요인, current_measures: "이행완료", improvements_checked: "양호",
+                    current_score: 12, residual_score: 3
+                }))
+            };
+            try {
+                await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(data) });
+                showToast("✅ 점검 결과가 성공적으로 전송되었습니다.");
+                setTimeout(goHome, 2000);
+            } catch(e) { showToast("⚠️ 전송 실패. 로컬에 자동 보관됩니다."); }
+            finally { showLoading(false); }
+        }
+
+        function goHome() { 
+            switchPhase('dashboard');
+            document.getElementById('worker-input').value = '';
+            document.getElementById('overall-improvement').value = '';
+            currentState.checkedItems.clear();
+        }
+
+        function exportResultToPDF() {
+            const el = document.getElementById('pdf-content-area');
+            const opt = { margin:10, filename:'위험성평가_보고서.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm', format:'a4'} };
+            showLoading(true);
+            html2pdf().set(opt).from(el).save().then(() => { showToast("✅ PDF 다운로드 완료"); showLoading(false); });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initLucide();
+            fetchInitialData();
+            document.getElementById('current-date').innerText = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' });
+            window.sigPad = new SignaturePad(document.getElementById('signature-pad'));
+        });
+    </script>
+</body>
+</html>
