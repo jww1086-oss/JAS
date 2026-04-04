@@ -1866,8 +1866,8 @@ async function submitLog() {
             task_name: currentState.selectedTask,
             step_name: r.작업단계 || currentState.selectedStep, // 개별 로그의 고유 단계명 유지
             hazard: r.위험요인,
-            current_measures: currentChecked || "현재 조치 유지 및 실천",
-            improvements_checked: improvedList || "개선 조치 불필요 (현재 조치 유지)",
+            current_measures: currentChecked || currentMeasuresMaster.filter(v => v).join('\n'), // [수정] 미체크 시 마스터 내용 전체 기입
+            improvements_checked: improvedList || "", // [수정] 미체크 시 빈칸 처리
             current_frequency: riskData.current.frequency,
             current_severity: riskData.current.severity,
             current_score: riskData.current.score,
