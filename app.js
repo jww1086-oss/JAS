@@ -2119,56 +2119,65 @@ function renderReportToViewer(logs) {
     const first = logs[0];
     const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    // HTML 보고서 템플릿 생성
+    // HTML 보고서 템플릿 생성 (시트 헤더와 정확히 매핑: 점검자, 부서명, 작업명 등)
     let html = `
         <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="font-size: 2.2rem; color: #1e293b; margin-bottom: 5px; font-weight: 900;">위험성평가 실시 결과 보고서</h1>
-            <p style="color: #64748b; font-size: 1rem;">본 보고서는 실시간 스마트 안전 점검 시스템을 통해 자동 생성되었습니다.</p>
+            <div style="font-size: 0.9rem; color: var(--doing-blue); font-weight: 800; margin-bottom: 8px;">KOSHA SMART SAFETY REPORT</div>
+            <h1 style="font-size: 2.2rem; color: #1e293b; margin-bottom: 5px; font-weight: 900; letter-spacing: -1px;">위험성평가 실시 결과 보고서</h1>
+            <p style="color: #64748b; font-size: 1rem;">본 보고서는 실시간 스마트 안전 점검 시스템을 통해 생성된 공식 문서입니다.</p>
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 0.95rem;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 0.95rem; border: 2px solid #e2e8f0;">
             <tr>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; width: 25%; text-align: left;">부서명</th>
-                <td style="border: 1px solid #e2e8f0; padding: 12px;">${first.부서명 || first.소속}</td>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; width: 25%; text-align: left;">작업명</th>
-                <td style="border: 1px solid #e2e8f0; padding: 12px;">${first.작업명}</td>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; width: 20%; text-align: center; color: #475569;">부서명</th>
+                <td style="border: 1px solid #e2e8f0; padding: 14px; width: 30%; font-weight: 600;">${first.부서명 || first.소속 || "미지정"}</td>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; width: 20%; text-align: center; color: #475569;">작업명</th>
+                <td style="border: 1px solid #e2e8f0; padding: 14px; width: 30%; font-weight: 600;">${first.작업명 || "내용 없음"}</td>
             </tr>
             <tr>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; text-align: left;">평가자</th>
-                <td style="border: 1px solid #e2e8f0; padding: 12px;">${first.평가자 || first.점검자 || "미지정"}</td>
-                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; text-align: left;">조회일자</th>
-                <td style="border: 1px solid #e2e8f0; padding: 12px;">${today}</td>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; text-align: center; color: #475569;">평가자(점검자)</th>
+                <td style="border: 1px solid #e2e8f0; padding: 14px; font-weight: 600;">${first.점검자 || first.평가자 || "미지정"}</td>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; text-align: center; color: #475569;">평가 일자</th>
+                <td style="border: 1px solid #e2e8f0; padding: 14px; font-weight: 600;">${first.일시 ? new Date(first.일시).toLocaleDateString() : today}</td>
             </tr>
         </table>
 
-        <h3 style="color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-            <span style="width: 4px; height: 18px; background: #2563eb; display: inline-block;"></span>
-            점검 요인 및 평가 결과
+        <h3 style="color: #0f172a; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: 800;">
+            <span style="width: 6px; height: 22px; background: var(--doing-blue); display: inline-block; border-radius: 3px;"></span>
+            상세 점검 요인 및 평가 결과
         </h3>
 
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 40px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 40px; border: 1px solid #e2e8f0;">
             <thead>
                 <tr style="background: #1e293b; color: white;">
-                    <th style="border: 1px solid #334155; padding: 10px;">작업단계</th>
-                    <th style="border: 1px solid #334155; padding: 10px;">위험요인</th>
-                    <th style="border: 1px solid #334155; padding: 10px;">현재 조치</th>
-                    <th style="border: 1px solid #334155; padding: 10px;">잔류위험도</th>
+                    <th style="border: 1px solid #334155; padding: 12px; width: 15%;">작업단계</th>
+                    <th style="border: 1px solid #334155; padding: 12px; width: 20%;">위험요인</th>
+                    <th style="border: 1px solid #334155; padding: 12px; width: 25%;">현재 안전조치</th>
+                    <th style="border: 1px solid #334155; padding: 12px; width: 25%;">추가 개선대책</th>
+                    <th style="border: 1px solid #334155; padding: 12px; width: 15%;">위험도<br>(현재/잔류)</th>
                 </tr>
             </thead>
             <tbody>
                 ${logs.map(l => `
                     <tr>
-                        <td style="border: 1px solid #e2e8f0; padding: 10px;">${l.작업단계}</td>
-                        <td style="border: 1px solid #e2e8f0; padding: 10px;">${l.위험요인}</td>
-                        <td style="border: 1px solid #e2e8f0; padding: 10px;">${l.현재안전조치 || "이상 없음"}</td>
-                        <td style="border: 1px solid #e2e8f0; padding: 10px; text-align: center; font-weight: 700; color: ${parseInt(l.잔류_위험도) >= 9 ? '#e11d48' : '#059669'}">${l.잔류_위험도 || "-"}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 12px; font-weight: 600; background: #fdfdfd;">${l.작업단계 || "-"}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 12px; color: #334155;">${l.위험요인 || "-"}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 12px; font-size: 0.75rem; white-space: pre-line;">${l.현재안전조치 || "이상 없음"}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 12px; font-size: 0.75rem; color: #b91c1c; white-space: pre-line;">${l.개선대책 || "-"}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 12px; text-align: center;">
+                            <div style="font-weight: 700; color: #64748b; font-size: 0.7rem;">${l.현재_위험도 || "-"}</div>
+                            <div style="font-weight: 800; color: ${parseInt(l.잔류_위험도) >= 9 ? '#e11d48' : '#059669'}; font-size: 1.1rem; margin-top: 2px;">
+                                ${l.잔류_위험도 || "-"}
+                            </div>
+                        </td>
                     </tr>
                 `).join('')}
             </tbody>
         </table>
 
-        <div style="margin-top: 50px; text-align: center; border-top: 2px solid #e2e8f0; padding-top: 30px;">
-            <p style="font-weight: 700; font-size: 1.1rem; color: #1e293b;">한국중부발전(주) 스마트 안전 시스템</p>
+        <div style="margin-top: 60px; text-align: center; border-top: 2px dashed #e2e8f0; padding-top: 30px;">
+            <div style="font-weight: 900; font-size: 1.4rem; color: #1e293b; letter-spacing: 2px;">한국중부발전(주)</div>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">KOMIPO SMART SAFETY SYSTEM PORTAL</p>
         </div>
     `;
     
