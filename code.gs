@@ -36,20 +36,16 @@ function doPost(e) {
     
     data.logs.forEach(log => {
       logSheet.appendRow([
-        new Date(), // 점검일시
-        data.worker,
-        data.department,
-        data.task,
-        data.step,
-        log.hazard,
-        log.current_checked,
-        log.current_frequency,
-        log.current_severity,
-        log.current_score,
-        log.improvements_checked,
-        log.residual_frequency,
-        log.residual_severity,
-        log.residual_score
+        new Date(),              // A: 일시
+        data.department,         // B: 부서명
+        data.task,               // C: 작업명
+        data.worker,             // D: 점검자
+        log.step_name,           // E: 작업단계 (개별 단계 기록으로 수정)
+        log.hazard,              // F: 위험요인
+        log.current_measures,    // G: 현재안전조치
+        log.improvements_checked,// H: 개선대책
+        log.current_score,       // I: 현재_위험도
+        log.residual_score       // J: 잔류_위험도
       ]);
     });
     
