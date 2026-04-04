@@ -26,9 +26,7 @@ const currentState = {
     allLogs: [] 
 };
 
-// [CORRECTED] 사용자님이 제공해주신 올바른 GAS 주소로 수정
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzw_O97tOnuGguz2duinW2r3f4OF3vQL0O5GW0YY3A-_rrloq-_S1jxA_P660UITV6POA/exec";
-
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx3tKBcLnelqMbBMQOWWsBVnLrq5ZmEwdZ1zvTNKSsjjLvM75Tk-LyDQ-H2Io3alUhyTg/exec";
 // [NEW] 실시간 네트워크 상태 업데이트 함수 (v25.1)
 function updateNetworkStatus(isOnline, message = "") {
     const indicator = document.getElementById('network-status');
