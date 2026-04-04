@@ -11,12 +11,16 @@ const SPREADSHEET_ID = "1_qLqeCtpr8D66oj7TjNwqvvUNa4xU7m_QVpdyzKryeE";
 function doGet(e) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName("위험성_마스터");
+    const type = e.parameter.type || "master"; // 요청 타입 (master 또는 users)
+    let sheetName = (type === "users") ? "평가자명단" : "위험성_마스터";
+    
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) throw new Error("'" + sheetName + "' 시트를 찾을 수 없습니다.");
+    
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const rows = data.slice(1);
     
-    // 헤더 정규화(공백 제거 등)를 통해 데이터 신뢰성 확보
     const result = rows.map(row => {
       let obj = {};
       headers.forEach((header, i) => {
@@ -25,7 +29,16 @@ function doGet(e) {
       return obj;
     });
     
-    return ContentService.createTextOutput(JSON.stringify(result))
+    const jsonString = JSON.stringify(result);
+    const callback = e.parameter.callback;
+    
+    // JSONP 지원 (callback 파라미터가 있으면 함수로 감싸서 반환)
+    if (callback) {
+      return ContentService.createTextOutput(callback + "(" + jsonString + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    
+    return ContentService.createTextOutput(jsonString)
       .setMimeType(ContentService.MimeType.JSON);
     
   } catch (err) {
