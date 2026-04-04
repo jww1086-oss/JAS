@@ -4,7 +4,7 @@
 
 const currentState = {
     currentStep: 0,
-    selectedWorkers: [], // [UPDATE] 다중 평가자 지원
+    selectedWorkers: [], 
     selectedDept: null,
     selectedTask: null,
     selectedStep: null,
@@ -17,37 +17,48 @@ const currentState = {
     manualNotes: {},
     photoBase64: null,
     signatureBase64: null,
-    incidents: {}, // Initialize to prevent TypeError
-    risks: [],      // Initialize to prevent TypeError
-    expandedHazardKeys: new Set(), // [UPDATE] 여러 아코디언이 동시에 열릴 수 있도록 변경
-    manualHazards: [], // [NEW] 수동 추가 위험요인
-    manualHazardItems: {}, // [NEW] 수동 추가 위험요인의 개별 조치 항목들 { hazardId: { current: [], improve: [] } }
-    improvementResults: {}, // [NEW] 개선 단계(Phase 3)의 개별 사진 및 결과 { measureId: { photo: null, note: "" } }
-    allLogs: [] // [NEW] 전체 실시로그 데이터 (조회용)
+    incidents: {}, 
+    risks: [],      
+    expandedHazardKeys: new Set(),
+    manualHazards: [], 
+    manualHazardItems: {}, 
+    improvementResults: {}, 
+    allLogs: [] 
 };
 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwAkVKP9pBVqegU0TS1J7F_ARrRY4JKy3_DdZrMrOwWBscPWeBhdYXqPX1RR3bYWrZ8VA/exec"; // [FINAL] 사진 및 드라이브 연동 주소
+// [CORRECTED] 사용자님이 제공해주신 올바른 GAS 주소로 수정
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzw_O97tOnuGguz2duinW2r3f4OF3vQL0O5GW0YY3A-_rrloq-_S1jxA_P660UITV6POA/exec";
+
+// [NEW] 실시간 네트워크 상태 업데이트 함수 (v25.1)
+function updateNetworkStatus(isOnline, message = "") {
+    const indicator = document.getElementById('network-status');
+    if (!indicator) return;
+
+    if (isOnline) {
+        indicator.className = 'status-indicator online';
+        indicator.querySelector('.status-text').textContent = message || '실시간 ON';
+    } else {
+        indicator.className = 'status-indicator offline';
+        indicator.querySelector('.status-text').textContent = message || '접속 중...';
+    }
+}
 
 // 1. 데이터 보안 우회(CORS) 및 정제 유틸리티
 function cleanValue(val) {
     if (typeof val !== 'string') return val;
-    // [cite: 41] 같은 인용구 제거 및 공백 정리
     return val.replace(/\[cite: \d+\]/g, '').trim(); 
 }
 
 function smartSplit(text) {
     if (!text || typeof text !== 'string') return [text];
-    // 번호 패턴 정규식: 1., (1), ①, -, * 등을 감지하여 분리
     const items = text.split(/(?=[0-9]+\.|[0-9]+\)|[①-⑳]|\([0-9]+\)|(?:\n|^)[-*••])/)
         .map(item => item.replace(/^[0-9]+\.|^[0-9]+\)|^[①-⑳]|^\([0-9]+\)|^-|^\*|^\•|^\•/, '').trim())
         .filter(item => item.length > 0);
     return items.length > 0 ? items : [text.trim()];
 }
 
-// [NEW] 정규화된 문자열 기반 고유 해시 생성 (공백/특수문자 무시)
 function getHash(str) {
     if (typeof str !== "string") return "0";
-    // 한글, 영문, 숫자만 남기고 모두 제거 (정규화)
     const normalized = str.replace(/[^ㄱ-ㅎ|가-힣|a-z|A-Z|0-9]/g, ""); 
     let hash = 0;
     for (let i = 0; i < normalized.length; i++) {
@@ -59,24 +70,37 @@ function getHash(str) {
 }
 
 function fetchJSONP(url) {
+    updateNetworkStatus(false, '통신 중...');
     return new Promise((resolve, reject) => {
         const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
         const script = document.createElement('script');
         
-        window[callbackName] = (data) => {
+        const timeout = setTimeout(() => {
             delete window[callbackName];
             document.body.removeChild(script);
+            updateNetworkStatus(false, '연결 지연');
+            reject(new Error('네트워크 응답 시간 초과'));
+        }, 12000); 
+
+        window[callbackName] = (data) => {
+            clearTimeout(timeout);
+            delete window[callbackName];
+            document.body.removeChild(script);
+            updateNetworkStatus(true, '실시간 ON'); 
             resolve(data);
         };
 
         script.onerror = () => {
+            clearTimeout(timeout);
             delete window[callbackName];
             document.body.removeChild(script);
+            updateNetworkStatus(false, '연결 오류');
             reject(new Error('JSONP fetch failed'));
         };
 
         const separator = url.indexOf('?') >= 0 ? '&' : '?';
-        script.src = `${url}${separator}callback=${callbackName}`;
+        const timestamp = new Date().getTime();
+        script.src = `${url}${separator}callback=${callbackName}&_t=${timestamp}`;
         document.body.appendChild(script);
     });
 }
@@ -89,12 +113,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDate();
     setInterval(updateDate, 60000);
 
-    // 초기 히스토리 상태 설정 (메인 화면)
+    // [NEW] 실시간 온라인 감시 시스템 가동
+    window.addEventListener('online', () => updateNetworkStatus(true, '실시간 ON'));
+    window.addEventListener('offline', () => updateNetworkStatus(false, 'OFFLINE'));
+
     if (!history.state) {
         history.replaceState({ phase: 'dashboard' }, "", "");
     }
 
-    // 브라우저/물리 뒤로가기 감지
     window.onpopstate = (event) => {
         if (event.state && event.state.phase) {
             switchPhase(event.state.phase, true);
@@ -111,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
 
 function initLucide() { if (window.lucide) window.lucide.createIcons(); }
 

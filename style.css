@@ -58,7 +58,32 @@ body {
 .logo-main { font-family: 'Outfit', sans-serif; font-size: 1.8rem; font-weight: 950; color: var(--doing-blue); letter-spacing: -1.5px; }
 .logo-sub { font-size: 0.85rem; font-weight: 800; color: #64748b; margin-left: 5px; }
 .header-v-label { font-size: 0.6rem; color: #94a3b8; font-weight: 500; margin-left: 10px; }
+
+/* Status Indicator v25.1 - Real-time Network Watcher */
+.status-indicator {
+    display: flex; align-items: center; gap: 6px;
+    background: #f1f5f9; padding: 4px 12px; border-radius: 12px;
+    font-size: 0.65rem; font-weight: 900; color: #64748b;
+    margin-left: auto; margin-right: 15px;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.status-indicator .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #94a3b8; transition: 0.3s;
+}
+.status-indicator.online { color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; }
+.status-indicator.online .dot { background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.6); animation: pulse 2s infinite; }
+.status-indicator.offline { color: #e11d48; background: #fff1f2; border: 1px solid #fecaca; }
+.status-indicator.offline .dot { background: #f43f5e; box-shadow: 0 0 10px rgba(244, 63, 94, 0.4); }
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.6; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 .header-date { font-size: 0.85rem; font-weight: 900; color: #cbd5e1; }
+
 
 /* Dashboard Grid */
 .main-banner { position: relative; width: calc(100% + 40px); margin: 0 -20px; height: 180px; overflow: hidden; border-radius: 0 0 32px 32px; }
