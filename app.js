@@ -83,6 +83,68 @@ function loadDrafts() {
                     부서명: data.selectedDept,
                     작업명: data.selectedTask,
                     일시: data.lastUpdated,
+                    점검자: (Array.isArray(data.selectedWorkers) ? data.selectedWorkers.join(', ') : data.selectedWorker) || '작성 중'
+                });
+            } catch (e) { console.error("Draft parse error:", e); }
+        }
+    }
+    return drafts;
+}
+
+function resumeDraft(key) {
+    const rawData = localStorage.getItem(key);
+    if (!rawData) return;
+    try {
+        const data = JSON.parse(rawData);
+        // 상태 복원
+        Object.assign(currentState, data);
+        currentState.checkedItems = new Set(data.checkedItems);
+        currentState.checkedMeasures = new Set(data.checkedMeasures);
+        currentState.improvedMeasures = new Set(data.improvedMeasures);
+        currentState.expandedHazardKeys = new Set(data.expandedHazardKeys);
+        
+        showToast("🔄 임시 저장된 데이터를 불러왔습니다.");
+        
+        // 현재 단계에 맞춰 이동
+        if (currentState.currentStep > 0) {
+            switchPhase(`step-${currentState.currentStep}`);
+        } else {
+            switchPhase('step-1');
+        }
+    } catch (e) {
+        console.error("Resume error:", e);
+        showToast("❌ 데이터를 불러오지 못했습니다.");
+    }
+}
+
+// --- [NEW] 임시 저장 및 복원 시스템 (v25.2) ---
+function saveDraft() {
+    if (!currentState.selectedDept || !currentState.selectedTask) return;
+    const key = `KOMIPO_DRAFT_${currentState.selectedDept}_${currentState.selectedTask}`;
+    const draftData = {
+        ...currentState,
+        checkedItems: Array.from(currentState.checkedItems),
+        checkedMeasures: Array.from(currentState.checkedMeasures),
+        improvedMeasures: Array.from(currentState.improvedMeasures),
+        expandedHazardKeys: Array.from(currentState.expandedHazardKeys),
+        lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(key, JSON.stringify(draftData));
+}
+
+function loadDrafts() {
+    const drafts = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('KOMIPO_DRAFT_')) {
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                drafts.push({
+                    isDraft: true,
+                    draftKey: key,
+                    부서명: data.selectedDept,
+                    작업명: data.selectedTask,
+                    일시: data.lastUpdated,
                     점검자: data.selectedWorkers.join(', ') || '작성 중'
                 });
             } catch (e) { console.error("Draft parse error:", e); }
