@@ -602,6 +602,20 @@ function nextStep(step) {
     }
     
     if (step === 3) {
+        // [추가] 점검자 성명 유효성 검사 (Step 2에서 3으로 가기 전 필수 체크)
+        const workerName = document.getElementById('worker-input')?.value || currentState.selectedWorker;
+        if (!workerName || workerName.trim() === "") {
+            showToast("⚠️ 점검자 성명을 먼저 입력해 주세요. (화면 최상단)");
+            const input = document.getElementById('worker-input');
+            if (input) {
+                input.focus();
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                input.style.boxShadow = "0 0 0 4px rgba(244, 63, 94, 0.2)"; // 일시적 강조
+                setTimeout(() => input.style.boxShadow = "", 2000);
+            }
+            return;
+        }
+
         // 다음 단계가 더 있는지 확인
         if (currentState.currentStepIndex < currentState.availableSteps.length - 1) {
             currentState.currentStepIndex++;
