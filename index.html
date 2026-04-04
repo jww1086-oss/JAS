@@ -2,21 +2,31 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KOSHA | 안전 점검 시스템</title>
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KOSHA | 안전 점검 시스템</title>
-    <!-- Google Fonts: Inter & Outfit -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KOMIPO | 스마트 안전 점검 시스템</title>
+    
+    <!-- SEO & Branding -->
+    <meta name="description" content="한국중부발전 스마트 안전 점검 및 위험성 평가 시스템">
+    <meta property="og:title" content="KOMIPO 스마트 안전 점검">
+    <meta property="og:description" content="현장 중심의 실시간 위험성 평가 및 안전 조치 확인 시스템">
+    <meta property="og:image" content="https://jungbu.vercel.app/assets/icon.png">
+    <meta property="og:url" content="https://jungbu.vercel.app/">
+    <meta name="theme-color" content="#00aeef">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="assets/icon.png">
+    <link rel="apple-touch-icon" href="assets/icon.png">
+
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
+    
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Signature Pad Lib -->
+    
+    <!-- Signature Pad -->
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=10.0">
+    
+    <link rel="stylesheet" href="style.css?v=11.0">
 </head>
 <body>
     <div class="app-shell">
@@ -24,9 +34,9 @@
             <!-- Header -->
             <header class="doing-header">
                 <div class="logo-area">
-                <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO</h1>
-                <p style="font-size: 0.85rem; font-weight: 700; color: #64748b; margin-top: -2px;">한국중부발전</p>
-            </div>
+                    <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO</h1>
+                    <p style="font-size: 0.85rem; font-weight: 700; color: #64748b; margin-top: -2px;">한국중부발전</p>
+                </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div id="network-indicator" class="network-status"></div>
                     <div id="current-date" class="header-date"></div>
@@ -36,7 +46,7 @@
             <!-- Main Content -->
             <main id="app">
             
-            <!-- Progress Tracker (Active during inspection) -->
+            <!-- Progress Tracker -->
             <div id="stepper" class="stepper-container" style="display: none;">
                 <div class="step-progress-bar">
                     <div class="progress-fill" id="progress-fill"></div>
@@ -59,9 +69,7 @@
                     </div>
                 </div>
 
-                <!-- (통합 배너 제거됨 - 그리드 메뉴 내부로 이동) -->
-                
-                <!-- Doing Grid Menu (9 items) -->
+                <!-- Grid Menu -->
                 <div class="doing-grid">
                     <div class="grid-card" onclick="startAssessment()">
                         <div class="icon-box color-blue">
@@ -111,17 +119,17 @@
                         </div>
                         <span>PTW<br>작업허가서</span>
                     </div>
-                    <div class="grid-card">
+                    <div class="grid-card" onclick="switchPhase('step-history')">
                         <div class="icon-box color-orange-light">
-                            <div class="step-node" id="node-3">
-                        <span>3</span>
-                        <label>개선</label>
+                             <i data-lucide="history"></i>
+                        </div>
+                        <span>나의<br>제출내역</span>
                     </div>
                 </div>
             </section>
 
 
-            <!-- Phase 1: User & Task Selection (Banner Style) -->
+            <!-- Phase 1: User & Task Selection -->
             <section id="step-1" class="phase">
                 <div class="section-header" id="step1-header">
                     <h2>부서 선택</h2>
@@ -129,7 +137,7 @@
                 </div>
                 
                 <div id="selection-container" class="selection-banner-list" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
-                    <!-- JS에서 동적으로 부서/작업 배너 생성 -->
+                    <!-- JS dynamic -->
                 </div>
 
                 <div class="btn-container adaptive" id="step1-home-btn" style="margin-top: 2rem;">
@@ -137,14 +145,13 @@
                 </div>
             </section>
 
-            <!-- Phase 2: Risk Checklist (Sequential) -->
+            <!-- Phase 2: Risk Checklist -->
             <section id="step-2" class="phase">
                 <div class="section-header">
                     <h2 id="step2-title">위험 요인 및 대책 확인</h2>
                 </div>
 
-                <!-- Worker Name Input (True Absolute Flat Style) -->
-                <div class="worker-input-card" style="background:transparent !important; border:none !important; border-bottom:none !important; padding:1.5rem 0 !important; margin-bottom:1.5rem !important; border-radius:0 !important;">
+                <div class="worker-input-card" style="padding:1.5rem 0 !important; margin-bottom:1.5rem !important;">
                     <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">점검자 성명</label>
                     <div class="form-group dropdown-container" style="margin-bottom:0;">
                         <input type="text" id="worker-input" class="ui-input" style="height:48px;" placeholder="성명을 입력하세요" autocomplete="off">
@@ -154,7 +161,6 @@
                 
                 <div class="checklist" id="risk-checklist"></div>
 
-                <!-- Incident Reference Card (Conditional) -->
                 <div id="incident-container" class="incident-card" style="display: none;">
                     <div class="incident-header">
                         <i data-lucide="alert-triangle"></i>
@@ -166,7 +172,7 @@
                 <div id="next-action-container"></div>
             </section>
 
-            <!-- Phase 3: Improvement & Photo (NEW) -->
+            <!-- Phase 3: Improvement & Photo -->
             <section id="step-improvement" class="phase">
                 <div class="section-header">
                     <h2>개선 조치 및 사진</h2>
@@ -174,7 +180,7 @@
                 </div>
 
                 <div class="improvement-content-area" style="margin-top: 1rem;">
-                    <!-- Dynamically populated by renderImprovementPhase() -->
+                    <!-- JS dynamic -->
                 </div>
             </section>
 
@@ -211,7 +217,7 @@
                 </div>
                 
                 <div id="history-list-container" class="history-list-area">
-                    <!-- Dynamic List -->
+                    <!-- JS dynamic -->
                 </div>
 
                 <div id="history-detail-container" class="history-detail-area" style="display: none;">
@@ -246,9 +252,9 @@
                     <i data-lucide="search"></i>
                     <span>검색</span>
                 </div>
-                <div class="nav-item">
-                    <i data-lucide="more-horizontal"></i>
-                    <span>전체</span>
+                <div class="nav-item" onclick="switchPhase('step-history')">
+                    <i data-lucide="history"></i>
+                    <span>기록</span>
                 </div>
             </nav>
 
@@ -261,7 +267,7 @@
         <div class="loader"></div>
     </div>
 
-    <script src="app.js?v=10.0"></script>
+    <script src="app.js?v=11.0"></script>
 
 </body>
 </html>

@@ -5,14 +5,14 @@
 ## 🛠️ 배포 가이드 (GitHub & Vercel)
 
 ### 1단계: GitHub에 코드 올리기
-1. [GitHub](https://github.com/)에 로그인하여 새로운 저장소(Repository)를 생성합니다. (이름: `anti-gravity-safety`)
+1. [GitHub](https://github.com/)에 로그인하여 새로운 저장소(Repository)를 생성합니다. (이름: `jungbu-safety`)
 2. 내 컴퓨터의 터미널(CMD) 또는 VS Code 터미널에서 다음 명령어를 입력합니다.
    ```bash
    git init
    git add .
-   git commit -m "Initial commit for safety app"
+   git commit -m "Initial commit for jungbu safety app"
    git branch -M main
-   git remote add origin https://github.com/사용자아이디/anti-gravity-safety.git
+   git remote add origin https://github.com/사용자아이디/jungbu-safety.git
    git push -u origin main
    ```
 
@@ -21,7 +21,7 @@
 2. **[Add New...] > [Project]** 를 선택합니다.
 3. 위에서 만든 GitHub 저장소를 **[Import]** 합니다.
 4. 설정값(Build & Development Settings)은 건드리지 않고 **[Deploy]** 버튼을 누릅니다. (`vercel.json`에 의해 자동 설정됩니다.)
-5. 배포가 완료되면 `https://xxxx.vercel.app` 형식의 전용 URL이 생성됩니다!
+5. 배포가 완료되면 `https://jungbu.vercel.app` 전용 URL로 접속 가능합니다!
 
 ## 🔧 기술 설정 필수 사항
 
