@@ -26,6 +26,9 @@
     <!-- Signature Pad -->
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     
+    <!-- PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <link rel="stylesheet" href="style.css?v=11.0">
 </head>
 <body>
@@ -71,7 +74,7 @@
 
                 <!-- Grid Menu -->
                 <div class="doing-grid">
-                    <div class="grid-card" onclick="startAssessment()">
+                    <div class="grid-card" onclick="switchPhase('step-choice')">
                         <div class="icon-box color-blue">
                             <i data-lucide="shield-alert"></i>
                         </div>
@@ -127,7 +130,162 @@
                     </div>
                 </div>
             </section>
+            
+            <!-- Phase 0: Choice (Conduct vs Results) -->
+            <section id="step-choice" class="phase">
+                <div class="section-header">
+                    <h2>위험성 평가</h2>
+                    <p>수행하실 업무를 선택해 주세요.</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 2rem;">
+                    <button class="grid-card" onclick="startAssessment()" style="height: 110px; width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 20px; padding: 0 1.5rem; border: 2px solid var(--doing-indigo); background: white; cursor: pointer; border-radius: 20px; box-shadow: var(--shadow-sm);">
+                        <div class="icon-box color-blue" style="width: 48px; height: 48px; flex-shrink: 0; background: #e0f2fe; color: #0369a1;">
+                            <i data-lucide="edit-3"></i>
+                        </div>
+                        <div style="text-align: left;">
+                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--doing-indigo);">위험성평가 실시</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">새로운 안전 점검을 시작합니다.</div>
+                        </div>
+                    </button>
+                    
+                    <button class="grid-card" onclick="openResultsView()" style="height: 110px; width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 20px; padding: 0 1.5rem; border: 2px solid var(--doing-green); background: white; cursor: pointer; border-radius: 20px; box-shadow: var(--shadow-sm);">
+                        <div class="icon-box color-green" style="width: 48px; height: 48px; flex-shrink: 0; background: #f0fdf4; color: #15803d;">
+                            <i data-lucide="file-search"></i>
+                        </div>
+                        <div style="text-align: left;">
+                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--doing-green);">위험성평가 결과 조회</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">기본에 제출된 데이터를 조회/출력합니다.</div>
+                        </div>
+                    </button>
+                </div>
 
+                <div style="margin-top: 2rem;">
+                    <button class="btn" onclick="goHome()" style="width: 100%; height: 56px; background: #f1f5f9; color: #475569; border: none; border-radius: 18px; font-weight: 800; cursor: pointer;">취소 및 홈으로</button>
+                </div>
+            </section>
+
+            <!-- Phase Results: Results Inquiry -->
+            <section id="step-results" class="phase">
+                <div class="section-header">
+                    <h2>위험성평가 결과 조회</h2>
+                    <div id="result-search-form" class="worker-input-card" style="padding: 1.25rem; margin-top: 1rem; border-radius: 20px;">
+                        <div class="form-group" style="margin-bottom: 0.75rem;">
+                            <label class="ui-label" style="font-size: 0.85rem; color: #64748b; font-weight: 700;">조회 부서</label>
+                            <select id="result-dept-select" class="ui-input" onchange="updateResultTasks()">
+                                <option value="">부서를 선택하세요</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="ui-label" style="font-size: 0.85rem; color: #64748b; font-weight: 700;">조회 작업명</label>
+                            <select id="result-task-select" class="ui-input" onchange="showResultDetail()">
+                                <option value="">작업을 선택하세요</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 상세 리포트 뷰어 영역 -->
+                <div id="result-detail-viewer" style="display: none; margin-top: 1.5rem;">
+                    <div class="btn-group" style="margin-bottom: 1.5rem; display: flex; gap: 8px;">
+                        <button class="btn btn-primary" onclick="exportResultToPDF()" style="flex: 1; height: 48px; border-radius: 14px; background: #e11d48; border: none; color: white; font-weight: 700; cursor: pointer;">
+                            <i data-lucide="download" style="width:18px;"></i> PDF 다운로드
+                        </button>
+                        <button class="btn" onclick="resetResultsView()" style="flex: 0.4; height: 48px; border-radius: 14px; background: #f1f5f9; color: #475569; border: none; font-weight: 700; cursor: pointer;">다시 선택</button>
+                    </div>
+                    
+                    <div id="pdf-content-area" style="background: white; padding: 2.5rem 1.75rem; border-radius: 24px; border: 1px solid #e2e8f0; min-height: 400px; box-shadow: var(--shadow-sm);">
+                        <!-- JS dynamic -->
+                    </div>
+                </div>
+
+                <div id="results-empty-state" style="padding: 4rem 1.5rem; text-align: center; color: #94a3b8;">
+                    <i data-lucide="database" style="width:48px; height:48px; margin-bottom:1rem; opacity: 0.2;"></i>
+                    <p style="font-size: 0.9rem;">조회할 부서와 작업을 선택해 주세요.</p>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <button class="btn" onclick="switchPhase('step-choice')" style="width: 100%; height: 56px; background: #f1f5f9; color: #475569; border-radius: 18px; font-weight: 800; border: none; cursor: pointer;">이전으로 돌아가기</button>
+                </div>
+            </section>
+
+            <!-- Phase 0: Choice (Conduct vs Results) -->
+            <section id="step-choice" class="phase">
+                <div class="section-header">
+                    <h2>위험성 평가</h2>
+                    <p>수행하실 업무를 선택해 주세요.</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 2rem;">
+                    <button class="grid-card" onclick="startAssessment()" style="height: 110px; width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 20px; padding: 0 1.5rem; border: 2px solid var(--doing-indigo); background: white; cursor: pointer; border-radius: 20px; box-shadow: var(--shadow-sm);">
+                        <div class="icon-box color-blue" style="width: 48px; height: 48px; flex-shrink: 0; background: #e0f2fe; color: #0369a1;">
+                            <i data-lucide="edit-3"></i>
+                        </div>
+                        <div style="text-align: left;">
+                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--doing-indigo);">위험성평가 실시</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">새로운 안전 점검을 시작합니다.</div>
+                        </div>
+                    </button>
+                    
+                    <button class="grid-card" onclick="openResultsView()" style="height: 110px; width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 20px; padding: 0 1.5rem; border: 2px solid var(--doing-green); background: white; cursor: pointer; border-radius: 20px; box-shadow: var(--shadow-sm);">
+                        <div class="icon-box color-green" style="width: 48px; height: 48px; flex-shrink: 0; background: #f0fdf4; color: #15803d;">
+                            <i data-lucide="file-search"></i>
+                        </div>
+                        <div style="text-align: left;">
+                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--doing-green);">위험성평가 결과 조회</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">기전에 제출된 데이터를 조회/출력합니다.</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <button class="btn" onclick="goHome()" style="width: 100%; height: 56px; background: #f1f5f9; color: #475569; border: none; border-radius: 18px; font-weight: 800; cursor: pointer;">취소 및 홈으로</button>
+                </div>
+            </section>
+
+            <!-- Phase Results: Results Inquiry -->
+            <section id="step-results" class="phase">
+                <div class="section-header">
+                    <h2>위험성평가 결과 조회</h2>
+                    <div id="result-search-form" class="worker-input-card" style="padding: 1.25rem; margin-top: 1rem; border-radius: 20px;">
+                        <div class="form-group" style="margin-bottom: 0.75rem;">
+                            <label class="ui-label" style="font-size: 0.85rem; color: #64748b; font-weight: 700;">조회 부서</label>
+                            <select id="result-dept-select" class="ui-input" onchange="updateResultTasks()">
+                                <option value="">부서를 선택하세요</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="ui-label" style="font-size: 0.85rem; color: #64748b; font-weight: 700;">조회 작업명</label>
+                            <select id="result-task-select" class="ui-input" onchange="showResultDetail()">
+                                <option value="">작업을 선택하세요</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 상세 리포트 뷰어 영역 -->
+                <div id="result-detail-viewer" style="display: none; margin-top: 1.5rem;">
+                    <div class="btn-group" style="margin-bottom: 1.5rem; display: flex; gap: 8px;">
+                        <button class="btn btn-primary" onclick="exportResultToPDF()" style="flex: 1; height: 48px; border-radius: 14px; background: #e11d48; border: none; color: white; font-weight: 700; cursor: pointer;">
+                            <i data-lucide="download" style="width:18px;"></i> PDF 다운로드
+                        </button>
+                        <button class="btn" onclick="resetResultsView()" style="flex: 0.4; height: 48px; border-radius: 14px; background: #f1f5f9; color: #475569; border: none; font-weight: 700; cursor: pointer;">다시 선택</button>
+                    </div>
+                    
+                    <div id="pdf-content-area" style="background: white; padding: 2.5rem 1.75rem; border-radius: 24px; border: 1px solid #e2e8f0; min-height: 400px; box-shadow: var(--shadow-sm);">
+                        <!-- JS dynamic -->
+                    </div>
+                </div>
+
+                <div id="results-empty-state" style="padding: 4rem 1.5rem; text-align: center; color: #94a3b8;">
+                    <i data-lucide="database" style="width:48px; height:48px; margin-bottom:1rem; opacity: 0.2;"></i>
+                    <p style="font-size: 0.9rem;">조회할 부서와 작업을 선택해 주세요.</p>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <button class="btn" onclick="switchPhase('step-choice')" style="width: 100%; height: 56px; background: #f1f5f9; color: #475569; border-radius: 18px; font-weight: 800; border: none; cursor: pointer;">이전으로 돌아가기</button>
+                </div>
+            </section>
 
             <!-- Phase 1: User & Task Selection -->
             <section id="step-1" class="phase">

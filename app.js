@@ -22,7 +22,8 @@ const currentState = {
     expandedHazardKeys: new Set(), // [UPDATE] 여러 아코디언이 동시에 열릴 수 있도록 변경
     manualHazards: [], // [NEW] 수동 추가 위험요인
     manualHazardItems: {}, // [NEW] 수동 추가 위험요인의 개별 조치 항목들 { hazardId: { current: [], improve: [] } }
-    improvementResults: {} // [NEW] 개선 단계(Phase 3)의 개별 사진 및 결과 { measureId: { photo: null, note: "" } }
+    improvementResults: {}, // [NEW] 개선 단계(Phase 3)의 개별 사진 및 결과 { measureId: { photo: null, note: "" } }
+    allLogs: [] // [NEW] 전체 실시로그 데이터 (조회용)
 };
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxXqNXF68HqVuTGaK8jX66Y2Exbdd3k3W2FEHhEs6EaQBAEHTO9R8ItBN__jFlRtwAtyg/exec"; // [FINAL] 사진 및 드라이브 연동 주소
@@ -128,7 +129,7 @@ function switchPhase(targetId, skipHistory = false) {
 
     // Stepper & Step State
     const stepper = document.getElementById('stepper');
-    if (targetId === 'dashboard' || targetId === 'step-history') {
+    if (targetId === 'dashboard' || targetId === 'step-history' || targetId === 'step-choice' || targetId === 'step-results') {
         if (stepper) stepper.style.display = 'none';
         currentState.currentStep = 0;
     } else if (targetId.startsWith('step-')) {
@@ -2037,4 +2038,159 @@ function updateDate() {
     if (!el) return;
     const now = new Date();
     el.textContent = now.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
+}
+// [NEW] 위험성평가 결과 조회 기능 (Phase: Results)
+async function openResultsView() {
+    const overlay = document.getElementById('loading-overlay');
+    if(overlay) overlay.classList.add('active');
+    
+    try {
+        const response = await fetchJSONP(GAS_URL + "?type=logs");
+        if (Array.isArray(response)) {
+            currentState.allLogs = response;
+            
+            // 부서 목록 중복 제거 및 필터링
+            const depts = [...new Set(response.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d);
+            const deptSelect = document.getElementById('result-dept-select');
+            if (deptSelect) {
+                deptSelect.innerHTML = '<option value="">부서를 선택하세요</option>' + 
+                    depts.map(d => `<option value="${d}">${d}</option>`).join('');
+            }
+            
+            switchPhase('step-results');
+            resetResultsView(); // 데이터 유실 방지 및 초기화
+        } else {
+            showToast("데이터 형식 오류: 로그를 불러올 수 없습니다.");
+        }
+    } catch (error) {
+        console.error("로그 로드 실패:", error);
+        showToast("⚠️ 실시간 로그 데이터를 불러오는데 실패했습니다.");
+    } finally {
+        if(overlay) overlay.classList.remove('active');
+    }
+}
+
+function resetResultsView() {
+    document.getElementById('result-search-form').style.display = 'block';
+    document.getElementById('result-detail-viewer').style.display = 'none';
+    document.getElementById('results-empty-state').style.display = 'block';
+    document.getElementById('result-task-select').innerHTML = '<option value="">작업을 선택하세요</option>';
+    document.getElementById('result-dept-select').value = "";
+}
+
+function updateResultTasks() {
+    const selectedDept = document.getElementById('result-dept-select').value;
+    const taskSelect = document.getElementById('result-task-select');
+    if (!selectedDept || !taskSelect) return;
+    
+    const tasks = [...new Set(currentState.allLogs
+        .filter(log => (log.부서명 || log.소속) === selectedDept)
+        .map(log => log.작업명 || "제목 없음")
+    )].filter(t => t);
+    
+    taskSelect.innerHTML = '<option value="">작업을 선택하세요</option>' + 
+        tasks.map(t => `<option value="${t}">${t}</option>`).join('');
+    
+    document.getElementById('results-empty-state').style.display = 'block';
+    document.getElementById('result-detail-viewer').style.display = 'none';
+}
+
+function showResultDetail() {
+    const dept = document.getElementById('result-dept-select').value;
+    const task = document.getElementById('result-task-select').value;
+    if (!dept || !task) return;
+
+    const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept && log.작업명 === task);
+    if (filteredLogs.length === 0) return;
+
+    // UI 전환
+    document.getElementById('result-search-form').style.display = 'none';
+    document.getElementById('result-detail-viewer').style.display = 'block';
+    document.getElementById('results-empty-state').style.display = 'none';
+    
+    renderReportToViewer(filteredLogs);
+    initLucide();
+}
+
+function renderReportToViewer(logs) {
+    const container = document.getElementById('pdf-content-area');
+    if (!container) return;
+
+    const first = logs[0];
+    const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    // HTML 보고서 템플릿 생성
+    let html = `
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-size: 2.2rem; color: #1e293b; margin-bottom: 5px; font-weight: 900;">위험성평가 실시 결과 보고서</h1>
+            <p style="color: #64748b; font-size: 1rem;">본 보고서는 실시간 스마트 안전 점검 시스템을 통해 자동 생성되었습니다.</p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 0.95rem;">
+            <tr>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; width: 25%; text-align: left;">부서명</th>
+                <td style="border: 1px solid #e2e8f0; padding: 12px;">${first.부서명 || first.소속}</td>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; width: 25%; text-align: left;">작업명</th>
+                <td style="border: 1px solid #e2e8f0; padding: 12px;">${first.작업명}</td>
+            </tr>
+            <tr>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; text-align: left;">평가자</th>
+                <td style="border: 1px solid #e2e8f0; padding: 12px;">${first.평가자 || first.점검자 || "미지정"}</td>
+                <th style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; text-align: left;">조회일자</th>
+                <td style="border: 1px solid #e2e8f0; padding: 12px;">${today}</td>
+            </tr>
+        </table>
+
+        <h3 style="color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <span style="width: 4px; height: 18px; background: #2563eb; display: inline-block;"></span>
+            점검 요인 및 평가 결과
+        </h3>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 40px;">
+            <thead>
+                <tr style="background: #1e293b; color: white;">
+                    <th style="border: 1px solid #334155; padding: 10px;">작업단계</th>
+                    <th style="border: 1px solid #334155; padding: 10px;">위험요인</th>
+                    <th style="border: 1px solid #334155; padding: 10px;">현재 조치</th>
+                    <th style="border: 1px solid #334155; padding: 10px;">잔류위험도</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${logs.map(l => `
+                    <tr>
+                        <td style="border: 1px solid #e2e8f0; padding: 10px;">${l.작업단계}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 10px;">${l.위험요인}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 10px;">${l.현재안전조치 || "이상 없음"}</td>
+                        <td style="border: 1px solid #e2e8f0; padding: 10px; text-align: center; font-weight: 700; color: ${parseInt(l.잔류_위험도) >= 9 ? '#e11d48' : '#059669'}">${l.잔류_위험도 || "-"}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 50px; text-align: center; border-top: 2px solid #e2e8f0; padding-top: 30px;">
+            <p style="font-weight: 700; font-size: 1.1rem; color: #1e293b;">한국중부발전(주) 스마트 안전 시스템</p>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function exportResultToPDF() {
+    const element = document.getElementById('pdf-content-area');
+    const taskName = document.getElementById('result-task-select').value;
+    
+    if (!element || !taskName) return;
+
+    const opt = {
+        margin: 10,
+        filename: `위험성평가_보고서_${taskName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    showToast("📄 PDF 보고서를 생성 중입니다...");
+    html2pdf().set(opt).from(element).save().then(() => {
+        showToast("✅ PDF 다운로드가 완료되었습니다.");
+    });
 }

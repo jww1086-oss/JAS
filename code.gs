@@ -11,8 +11,13 @@ const SPREADSHEET_ID = "1_qLqeCtpr8D66oj7TjNwqvvUNa4xU7m_QVpdyzKryeE";
 function doGet(e) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const type = e.parameter.type || "master"; // 요청 타입 (master 또는 users)
-    let sheetName = (type === "users") ? "평가자명단" : "위험성_마스터";
+    const type = e.parameter.type || "master"; 
+    let sheetName = "위험성_마스터";
+    if (type === "users") {
+      sheetName = "평가자명단";
+    } else if (type === "logs") {
+      sheetName = "실시로그";
+    }
     
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) throw new Error("'" + sheetName + "' 시트를 찾을 수 없습니다.");
