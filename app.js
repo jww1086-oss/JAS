@@ -4,7 +4,7 @@
 
 const currentState = {
     currentStep: 0,
-    selectedWorker: null,
+    selectedWorkers: [], // [UPDATE] 다중 평가자 지원
     selectedDept: null,
     selectedTask: null,
     selectedStep: null,
@@ -782,8 +782,47 @@ function renderWorkers() {
             value: u.이름, 
             sub: `${u.소속} | ${u.직책}` 
         })),
-        (val) => { currentState.selectedWorker = val; }
+        (val) => { 
+            addSelectedWorker(val); 
+            document.getElementById('worker-input').value = ''; // 선택 후 초기화
+        }
     );
+    updateSelectedWorkersUI(); // 기존 선택 내역 복원
+}
+
+// [NEW] 평가자 추가 로직
+function addSelectedWorker(name) {
+    if (!name || currentState.selectedWorkers.includes(name)) return;
+    currentState.selectedWorkers.push(name);
+    updateSelectedWorkersUI();
+}
+
+// [NEW] 평가자 삭제 로직
+function removeSelectedWorker(name) {
+    currentState.selectedWorkers = currentState.selectedWorkers.filter(n => n !== name);
+    updateSelectedWorkersUI();
+}
+
+// [NEW] 선택된 평가자 칩(Chip) UI 렌더링
+function updateSelectedWorkersUI() {
+    const container = document.getElementById('selected-workers-chips');
+    if (!container) return;
+
+    if (currentState.selectedWorkers.length === 0) {
+        container.innerHTML = `<span style="font-size:0.8rem; color:#94a3b8; font-style:italic;">선택된 평가자가 없습니다.</span>`;
+        return;
+    }
+
+    container.innerHTML = currentState.selectedWorkers.map(name => `
+        <div class="assessor-chip" style="background:#f1f5f9; border:1px solid #e2e8f0; padding:6px 12px; border-radius:100px; display:flex; align-items:center; gap:6px; animation: fadeIn 0.3s ease;">
+            <span style="font-size:0.85rem; font-weight:700; color:#1e293b;">${name}</span>
+            <button onclick="removeSelectedWorker('${name}')" style="background:none; border:none; color:#94a3b8; cursor:pointer; display:flex; align-items:center; padding:2px;">
+                <i data-lucide="x-circle" style="width:14px; height:14px;"></i>
+            </button>
+        </div>
+    `).join('');
+
+    if (window.lucide) window.lucide.createIcons();
 }
 
 function populateTasks(dept) {
@@ -1751,10 +1790,10 @@ function initEventListeners() {
 }
 
 async function submitLog() {
-    const workerName = document.getElementById('worker-input')?.value || currentState.selectedWorker;
-    if (!workerName || workerName.trim() === "") { 
-        showToast("⚠️ 점검자 성명을 상단에 입력하거나 선택해 주세요."); 
-        switchPhase('step-2');
+    const workerNames = currentState.selectedWorkers.length > 0 ? currentState.selectedWorkers.join(', ') : '';
+    if (!workerNames) { 
+        showToast("⚠️ 평가자 성명을 1단계 상단에서 추가해 주세요."); 
+        switchPhase('step-1');
         return; 
     }
     if (signaturePad.isEmpty()) { showToast("⚠️ 본인 서명이 필요합니다."); return; }
@@ -1827,11 +1866,11 @@ async function submitLog() {
         const needsImprovement = mNotes.improvement.trim() !== "" || (riskData && riskData.current.score >= 9) || (currentMeasuresChecked.length < measures.length);
         if (!needsImprovement) return null;
         const improvements = [...measures.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
-        return { department: currentState.selectedDept, task_name: currentState.selectedTask, hazard: r.위험요인, improvement_measure: improvements || "현재 조치 완료 및 유지관리", improvement_date: today, manager: workerName };
+        return { department: currentState.selectedDept, task_name: currentState.selectedTask, hazard: r.위험요인, improvement_measure: improvements || "현재 조치 완료 및 유지관리", improvement_date: today, manager: workerNames };
     }).filter(Boolean);
 
     const payload = {
-        worker: workerName,
+        worker: workerNames,
         department: currentState.selectedDept,
         task: currentState.selectedTask,
         step: currentState.selectedStep,
