@@ -55,6 +55,68 @@ function smartSplit(text) {
     return items.length > 0 ? items : [text.trim()];
 }
 
+// --- [NEW] 임시 저장 및 복원 시스템 (v25.2) ---
+function saveDraft() {
+    if (!currentState.selectedDept || !currentState.selectedTask) return;
+    const key = `KOMIPO_DRAFT_${currentState.selectedDept}_${currentState.selectedTask}`;
+    const draftData = {
+        ...currentState,
+        checkedItems: Array.from(currentState.checkedItems),
+        checkedMeasures: Array.from(currentState.checkedMeasures),
+        improvedMeasures: Array.from(currentState.improvedMeasures),
+        expandedHazardKeys: Array.from(currentState.expandedHazardKeys),
+        lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(key, JSON.stringify(draftData));
+}
+
+function loadDrafts() {
+    const drafts = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('KOMIPO_DRAFT_')) {
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                drafts.push({
+                    isDraft: true,
+                    draftKey: key,
+                    부서명: data.selectedDept,
+                    작업명: data.selectedTask,
+                    일시: data.lastUpdated,
+                    점검자: data.selectedWorkers.join(', ') || '작성 중'
+                });
+            } catch (e) { console.error("Draft parse error:", e); }
+        }
+    }
+    return drafts;
+}
+
+function resumeDraft(key) {
+    const rawData = localStorage.getItem(key);
+    if (!rawData) return;
+    try {
+        const data = JSON.parse(rawData);
+        // 상태 복원
+        Object.assign(currentState, data);
+        currentState.checkedItems = new Set(data.checkedItems);
+        currentState.checkedMeasures = new Set(data.checkedMeasures);
+        currentState.improvedMeasures = new Set(data.improvedMeasures);
+        currentState.expandedHazardKeys = new Set(data.expandedHazardKeys);
+        
+        showToast("🔄 임시 저장된 데이터를 불러왔습니다.");
+        
+        // 현재 단계에 맞춰 이동
+        if (currentState.currentStep > 0) {
+            switchPhase(`step-${currentState.currentStep}`);
+        } else {
+            switchPhase('step-1');
+        }
+    } catch (e) {
+        console.error("Resume error:", e);
+        showToast("❌ 데이터를 불러오지 못했습니다.");
+    }
+}
+
 function getHash(str) {
     if (typeof str !== "string") return "0";
     const normalized = str.replace(/[^ㄱ-ㅎ|가-힣|a-z|A-Z|0-9]/g, ""); 
@@ -157,8 +219,9 @@ function switchPhase(targetId, skipHistory = false) {
     if (targetId === 'dashboard' || targetId === 'step-history' || targetId === 'step-choice' || targetId === 'step-results') {
         if (stepper) stepper.style.display = 'none';
         currentState.currentStep = 0;
-    } else if (targetId.startsWith('step-')) {
+    } else {
         if (stepper) stepper.style.display = 'block';
+        saveDraft(); // 단계 전환 시 자동 저장 활성화
         const stepNum = parseInt(targetId.replace('step-', ''));
         if (!isNaN(stepNum)) {
             currentState.currentStep = stepNum;
@@ -1892,6 +1955,10 @@ async function submitLog() {
         });
 
         showToast("✅ 전송 완료되었습니다.");
+        // 제출 성공 시 해당 임시 저장 데이터 삭제
+        const draftKey = `KOMIPO_DRAFT_${currentState.selectedDept}_${currentState.selectedTask}`;
+        localStorage.removeItem(draftKey);
+
         setTimeout(() => {
             overlay.classList.remove('active');
             location.reload();
@@ -1957,19 +2024,22 @@ async function openResultsView() {
     
     try {
         const response = await fetchJSONP(GAS_URL + "?type=logs");
-        if (Array.isArray(response)) {
-            currentState.allLogs = response;
-            const depts = [...new Set(response.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
-            const deptSelect = document.getElementById('result-dept-select');
-            if (deptSelect) {
-                deptSelect.innerHTML = '<option value="">부서를 선택하세요</option>' + 
-                    depts.map(d => `<option value="${d}">${d}</option>`).join('');
-            }
-            switchPhase('step-results');
-            resetResultsView();
-        } else {
-            showToast("⚠️ 데이터를 불러올 수 없습니다.");
+        const drafts = loadDrafts(); // 로컬 임시저장 데이터 로드
+        
+        let allLogs = [];
+        if (Array.isArray(response)) allLogs = [...response];
+        
+        // 임시저장 데이터와 서버 데이터 통합
+        currentState.allLogs = [...drafts, ...allLogs];
+        
+        const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
+        const deptSelect = document.getElementById('result-dept-select');
+        if (deptSelect) {
+            deptSelect.innerHTML = '<option value="">부서를 선택하세요</option>' + 
+                depts.map(d => `<option value="${d}">${d}</option>`).join('');
         }
+        switchPhase('step-results');
+        resetResultsView();
     } catch (error) {
         showToast("⚠️ 데이터 로드 실패. 네트워크 상태를 확인하세요.");
     } finally {
@@ -1996,13 +2066,15 @@ function updateResultTasks() {
         .filter(log => (log.부서명 || log.소속) === selectedDept)
         .map(log => ({
             name: log.작업명 || "제목 없음",
-            date: log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상"
+            date: log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상",
+            isDraft: log.isDraft || false,
+            draftKey: log.draftKey || ""
         }));
 
     const uniqueTasks = [];
     const seen = new Set();
     taskOptions.forEach(t => {
-        const key = `${t.name}-${t.date}`;
+        const key = t.isDraft ? t.draftKey : `${t.name}-${t.date}`;
         if (!seen.has(key)) {
             seen.add(key);
             uniqueTasks.push(t);
@@ -2010,16 +2082,29 @@ function updateResultTasks() {
     });
     
     taskSelect.innerHTML = '<option value="">작업을 선택하세요</option>' + 
-        uniqueTasks.map(t => `<option value="${t.name}">${t.date} | ${t.name}</option>`).join('');
+        uniqueTasks.map(t => {
+            const label = t.isDraft ? `[작성 중] ${t.name} (${t.date})` : `${t.date} | ${t.name}`;
+            const val = t.isDraft ? `DRAFT|${t.draftKey}` : t.name;
+            return `<option value="${val}">${label}</option>`;
+        }).join('');
 }
 
 function showResultDetail() {
     const dept = document.getElementById('result-dept-select').value;
-    const task = document.getElementById('result-task-select').value;
-    if (!dept || !task) {
+    const selectedVal = document.getElementById('result-task-select').value;
+    if (!dept || !selectedVal) {
         showToast("⚠️ 부서와 작업을 선택하세요.");
         return;
     }
+
+    // 임시 저장 항목 선택 시 이어가기 실행
+    if (selectedVal.startsWith('DRAFT|')) {
+        const draftKey = selectedVal.split('|')[1];
+        resumeDraft(draftKey);
+        return;
+    }
+
+    const task = selectedVal;
 
     const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept && log.작업명 === task);
     if (filteredLogs.length === 0) {
