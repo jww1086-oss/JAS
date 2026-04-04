@@ -1767,24 +1767,43 @@ async function submitLog() {
     const logs = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
         if (parts.length < 3) return null;
+        
+        // 정규화된 해시를 사용하여 정확한 리스크 객체 찾기
         const r = currentState.risks.find(risk => 
-            getHash(risk.작업명) === parts[0] &&
-            getHash(risk.작업단계) === parts[1] &&
-            getHash(risk.위험요인) === parts[2]
+            getHash(risk.작업명 || "") === parts[0] &&
+            getHash(risk.작업단계 || "") === parts[1] &&
+            getHash(risk.위험요인 || "") === parts[2]
         );
+        
         if (!r) return null;
+        
         const riskData = currentState.riskMatrixData[key] || {
             current: { severity: 1, frequency: 1, score: 1 },
             residual: { severity: 1, frequency: 1, score: 1 }
         };
-        const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
+        
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
-        const currentChecked = [...measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current].filter(v => v && v.trim()).join('\n');
-        const improvedList = [...measures.filter((_, mi) => currentState.improvedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
+        
+        // [수정] 표준 현재안전조치 컬럼 참조 (기존엔 개선대책을 참조하여 undefined가 발생함)
+        const currentMeasuresMaster = Array.isArray(r.현재안전조치) ? r.현재안전조치 : (r.현재안전조치 ? [r.현재안전조치] : []);
+        const improvementMeasuresMaster = Array.isArray(r.개선대책) ? r.개선대책 : (r.개선대책 ? [r.개선대책] : []);
+        
+        // 체크된 현재안전조치 텍스트 추출
+        const currentChecked = [...currentMeasuresMaster.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current]
+            .filter(v => v && v.trim()).join('\n');
+            
+        // 체크된 개선대책 텍스트 추출
+        const improvedList = [...improvementMeasuresMaster.filter((_, mi) => currentState.improvedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement]
+            .filter(v => v && v.trim()).join('\n');
+            
+        // [중요] 구글 시트 헤더 순서 및 필드명 최적화 (열 밀림 방지)
         return {
+            department: currentState.selectedDept,
+            task_name: currentState.selectedTask,
+            step_name: r.작업단계 || currentState.selectedStep, // 개별 로그의 고유 단계명 유지
             hazard: r.위험요인,
             current_measures: currentChecked || "현재 조치 유지 및 실천",
-            improvements_checked: improvedList,
+            improvements_checked: improvedList || "개선 조치 불필요 (현재 조치 유지)",
             current_frequency: riskData.current.frequency,
             current_severity: riskData.current.severity,
             current_score: riskData.current.score,
