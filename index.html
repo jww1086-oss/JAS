@@ -4,23 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KOSHA | 안전 점검 시스템</title>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KOSHA | 안전 점검 시스템</title>
     <!-- Google Fonts: Inter & Outfit -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Signature Pad Lib -->
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=6.3">
+    <link rel="stylesheet" href="style.css?v=10.0">
 </head>
 <body>
     <div class="app-shell">
         <div class="mobile-frame">
             <!-- Header -->
             <header class="doing-header">
-                <div class="logo">
-                     <span class="logo-main">KOSHA</span>
-                     <p class="logo-sub">안전보건공단</p>
-                </div>
+                <div class="logo-area">
+                <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO</h1>
+                <p style="font-size: 0.85rem; font-weight: 700; color: #64748b; margin-top: -2px;">한국중부발전</p>
+            </div>
                 <div id="current-date" class="header-date"></div>
             </header>
 
@@ -35,7 +41,7 @@
                 <div class="step-nodes">
                     <div class="step-node active" data-step="1"><span>1</span><label>작업</label></div>
                     <div class="step-node" data-step="2"><span>2</span><label>위험</label></div>
-                    <div class="step-node" data-step="3"><span>3</span><label>사진</label></div>
+                    <div class="step-node" data-step="3"><span>3</span><label>개선</label></div>
                     <div class="step-node" data-step="4"><span>4</span><label>서명</label></div>
                 </div>
             </div>
@@ -104,9 +110,9 @@
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-orange-light">
-                            <i data-lucide="users-round"></i>
-                        </div>
-                        <span>TBM</span>
+                            <div class="step-node" id="node-3">
+                        <span>3</span>
+                        <label>개선</label>
                     </div>
                 </div>
             </section>
@@ -134,8 +140,8 @@
                     <h2 id="step2-title">위험 요인 및 대책 확인</h2>
                 </div>
 
-                <!-- Worker Name Input (Integrated) -->
-                <div class="worker-input-card" style="background:white; border-radius:20px; padding:1.2rem; border:1px solid #e2e8f0; margin-bottom:1.5rem;">
+                <!-- Worker Name Input (True Absolute Flat Style) -->
+                <div class="worker-input-card" style="background:transparent !important; border:none !important; border-bottom:none !important; padding:1.5rem 0 !important; margin-bottom:1.5rem !important; border-radius:0 !important;">
                     <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">점검자 성명</label>
                     <div class="form-group dropdown-container" style="margin-bottom:0;">
                         <input type="text" id="worker-input" class="ui-input" style="height:48px;" placeholder="성명을 입력하세요" autocomplete="off">
@@ -155,10 +161,6 @@
                 </div>
 
                 <div id="next-action-container"></div>
-                
-                <div class="btn-container">
-                    <button class="btn btn-secondary" onclick="startAssessment()">처음으로</button>
-                </div>
             </section>
 
             <!-- Phase 3: Improvement & Photo (NEW) -->
@@ -168,43 +170,33 @@
                     <p>평가가 완료되었습니다. 개선이 필요한 사항에 대해 사진과 의견을 남겨주세요.</p>
                 </div>
 
-                <div class="improvement-content-area" style="margin-top: 1.5rem;">
-                    <div class="media-card" style="margin-bottom: 2rem;">
-                        <h4><i data-lucide="camera" style="width:16px; margin-right:4px;"></i> 현장 점검 사진 (필수)</h4>
-                        <div class="photo-upload-box" onclick="document.getElementById('photo-input').click()" id="improvement-photo-area">
-                            <i data-lucide="image-plus" style="width:32px; height:32px; margin-bottom:8px; opacity:0.3;"></i>
-                            <span>사진 촬영 또는 선택</span>
-                        </div>
-                        <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;">
-                        <div id="photo-preview" style="margin-top:1rem;"></div>
-                    </div>
-
-                    <div class="manual-input-area" style="background:white; border-radius:24px; padding:1.5rem; border:1px solid #f1f5f9;">
-                        <label class="ui-label" style="display:flex; align-items:center; gap:6px;">
-                            <i data-lucide="edit-3" style="width:16px;"></i> 종합 개선 의견 (수기 입력)
-                        </label>
-                        <textarea id="overall-improvement" class="manual-textarea" style="min-height:150px; margin-top:12px;" placeholder="현장 조치 사항이나 추가 개선이 필요한 내용을 입력하세요..."></textarea>
-                    </div>
-                </div>
-
-                <div class="btn-container adaptive" style="margin-top:2.5rem;">
-                    <button class="btn btn-primary main-action-btn" onclick="nextStep(4)">다음 (서명 및 제출) <i data-lucide="chevron-right"></i></button>
+                <div class="improvement-content-area" style="margin-top: 1rem;">
+                    <!-- Dynamically populated by renderImprovementPhase() -->
                 </div>
             </section>
 
-            <!-- Phase 4: Digital Signature (Renamed from 3 to 4) -->
+            <!-- Phase 4: Digital Signature -->
             <section id="step-4" class="phase">
                 <div class="section-header">
                     <h2>디지털 서명</h2>
-                    <p>점검 내용을 확인하고 본인 서명을 완료해 주세요.</p>
+                    <p>점검 내용을 최종 확인하고 본인 서명을 완료해 주세요.</p>
                 </div>
-                <div class="signature-container">
-                    <canvas id="signature-pad"></canvas>
-                    <button class="btn btn-secondary btn-sm" id="clear-signature">지우기</button>
+                <div class="signature-container" style="background: white; border-radius: 20px; padding: 1rem; border: 1px solid #f1f5f9; margin-bottom: 1.5rem;">
+                    <canvas id="signature-pad" style="width: 100%; height: 200px; background: #fafafa; border-radius: 12px;"></canvas>
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button class="btn btn-secondary btn-sm" id="clear-signature" style="padding: 4px 12px; font-size: 0.8rem;">서명 지우기</button>
+                    </div>
                 </div>
-                <div class="btn-container">
-                    <button class="btn btn-primary btn-finish" id="submit-btn" onclick="submitLog()">준수 결과 제출 <i data-lucide="send"></i></button>
-                    <button class="btn btn-secondary" onclick="switchPhase('step-improvement')">이전</button>
+
+                <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-top: 1rem;">
+                    <button class="btn" onclick="switchPhase('step-improvement')" 
+                            style="background: #f1f5f9; color: #475569; height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i data-lucide="arrow-left" style="width:18px;"></i> 이전
+                    </button>
+                    <button class="btn btn-primary" id="submit-btn" onclick="submitLog()" 
+                            style="background: var(--doing-blue); height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        최종 결과 제출 <i data-lucide="send" style="width:18px;"></i>
+                    </button>
                 </div>
             </section>
 
@@ -266,7 +258,7 @@
         <div class="loader"></div>
     </div>
 
-    <script src="app.js?v=6.3"></script>
+    <script src="app.js?v=10.0"></script>
 
 </body>
 </html>

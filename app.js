@@ -18,7 +18,11 @@ const currentState = {
     photoBase64: null,
     signatureBase64: null,
     incidents: {}, // Initialize to prevent TypeError
-    risks: []      // Initialize to prevent TypeError
+    risks: [],      // Initialize to prevent TypeError
+    expandedHazardKeys: new Set(), // [UPDATE] 여러 아코디언이 동시에 열릴 수 있도록 변경
+    manualHazards: [], // [NEW] 수동 추가 위험요인
+    manualHazardItems: {}, // [NEW] 수동 추가 위험요인의 개별 조치 항목들 { hazardId: { current: [], improve: [] } }
+    improvementResults: {} // [NEW] 개선 단계(Phase 3)의 개별 사진 및 결과 { measureId: { photo: null, note: "" } }
 };
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxuLvc2ywLQri2vELWld5UcBYwdsNGXu_vN2NfYAl3fjYm5XSThOalrHckbSh0zFgODPg/exec";
@@ -37,6 +41,17 @@ function smartSplit(text) {
         .map(item => item.replace(/^[0-9]+\.|^[0-9]+\)|^[①-⑳]|^\([0-9]+\)|^-|^\*|^\•|^\•/, '').trim())
         .filter(item => item.length > 0);
     return items.length > 0 ? items : [text.trim()];
+}
+
+// [NEW] 문자열 기반 고유 해시 생성 (인덱스 중복 방지)
+function getHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash |= 0;
+    }
+    return Math.abs(hash).toString(16);
 }
 
 function fetchJSONP(url) {
@@ -121,6 +136,7 @@ function switchPhase(targetId, skipHistory = false) {
             updateStepperUI(stepNum);
         } else if (targetId === 'step-improvement') {
             updateStepperUI(3);
+            renderImprovementPhase(); // [NEW] 개선 단계 진입 시 동적 렌더링 호출
         }
     }
 
@@ -544,7 +560,7 @@ function nextStep(step) {
         currentState.availableSteps = [...new Set(currentState.risks
             .filter(r => (r.부서명||'').trim() === (currentState.selectedDept||'').trim() && 
                          (r.작업명||'').trim() === (currentState.selectedTask||'').trim())
-            .map(r => r.작업단계))].filter(Boolean);
+            .map(r => (r.작업단계||'').trim()))].filter(Boolean);
         
         if (currentState.availableSteps.length === 0) {
             // 백업: 부서명 매칭 실패 시 작업명만으로 검색 시도
@@ -593,17 +609,27 @@ function nextStep(step) {
             // 모든 단계 종료 -> 개선 단계로 자동 전환
             switchPhase('step-improvement');
             if (window.lucide) window.lucide.createIcons();
+            
+            // Phase 2의 내비게이션 버튼들 비움 (중복 방지)
+            const nextContainer = document.getElementById('next-action-container');
+            if (nextContainer) nextContainer.innerHTML = '';
         }
         return;
     }
 
-    if (step === 4) {
-        // 서명 및 제출 단계
-        switchPhase('step-4');
-        return;
-    }
-
     switchPhase(`step-${step}`);
+}
+
+function prevStep() {
+    if (currentState.currentStepIndex > 0) {
+        currentState.currentStepIndex--;
+        currentState.selectedStep = currentState.availableSteps[currentState.currentStepIndex];
+        renderRiskChecklist(currentState.selectedStep);
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    } else {
+        // 첫 번째 단계에서 이전 기능은 처음으로(대시보드) 이동
+        location.reload();
+    }
 }
 
 function prevStep(step) {
@@ -832,26 +858,40 @@ function renderRiskChecklist(stepName) {
     const progressPercent = (progressCurrent / progressTotal) * 100;
     
     let checklistHTML = `
-        <div class="step-progress-wrapper" style="margin-bottom:2.5rem; background:white; padding:1.5rem; border-radius:20px; box-shadow:var(--shadow-sm); border:1px solid var(--border-light);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <span style="font-weight:900; color:#1e293b; font-size:1.15rem;">${progressCurrent}. ${stepName}</span>
-                <span style="font-size:0.85rem; color:#64748b; font-weight:700; background:#f1f5f9; padding:4px 10px; border-radius:10px;">${progressCurrent}/${progressTotal} 단계</span>
+        <div class="step-progress-wrapper premium-glass" style="margin-bottom:2.5rem; background:rgba(255, 255, 255, 0.9); padding:1.5rem; border-radius:24px; box-shadow:var(--shadow-md); border:1px solid rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <span style="font-size:0.75rem; color:var(--doing-blue); font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Phase ${progressCurrent}</span>
+                    <span style="font-weight:900; color:#1e293b; font-size:1.25rem; letter-spacing:-0.5px;">${stepName}</span>
+                </div>
+                <div style="text-align:right;">
+                    <span style="display:block; font-size:1.1rem; font-weight:900; color:var(--doing-blue);">${Math.round(progressPercent)}%</span>
+                    <span style="font-size:0.75rem; color:#64748b; font-weight:700;">${progressCurrent} / ${progressTotal} Sections</span>
+                </div>
             </div>
-            <div class="step-progress-bar-bg" style="height:10px; background:#f1f5f9; border-radius:10px; overflow:hidden;">
-                <div class="step-progress-bar-fill" style="width:${progressPercent}%; height:100%; background:linear-gradient(90deg, #3b82f6, #2563eb); transition:width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
+            <div class="step-progress-bar-bg" style="height:8px; background:#f1f5f9; border-radius:10px; overflow:hidden;">
+                <div class="step-progress-bar-fill" style="width:${progressPercent}%; height:100%; background:linear-gradient(90deg, #4f46e5, #3b82f6); box-shadow: 0 0 10px rgba(79, 70, 229, 0.3); transition:width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
             </div>
         </div>
         <div class="checklist-global-v6.3 checklist-items-area" style="display:flex !important; flex-direction:column !important; align-items:stretch !important; width:100% !important; padding:0 !important; margin-top: 1rem !important;">
     `;
     
     // 필터링 시 부서명 + 작업명 + 단계명 조건을 모두 확인하여 정확한 데이터 로드
-    const taskRisks = currentState.risks.filter(r => 
-        r.부서명 === currentState.selectedDept &&
-        r.작업명 === currentState.selectedTask && 
-        r.작업단계 === stepName
+    let taskRisks = currentState.risks.filter(r => 
+        (r.부서명||"").trim() === (currentState.selectedDept||"").trim() &&
+        (r.작업명||"").trim() === (currentState.selectedTask||"").trim() && 
+        (r.작업단계||"").trim() === (stepName||"").trim()
     );
 
-    console.log(`🔍 Rendering risks for [${currentState.selectedTask}] - [${stepName}]. Total items: ${taskRisks.length}`);
+    // [개선] 중복 위험요인 제거 (데이터 중복 방지)
+    const seenHazards = new Set();
+    taskRisks = taskRisks.filter(r => {
+        if (seenHazards.has(r.위험요인)) return false;
+        seenHazards.add(r.위험요인);
+        return true;
+    });
+
+    console.log(`🔍 Rendering risks for [${currentState.selectedTask}] - [${stepName}]. Unique items: ${taskRisks.length}`);
     
     if (taskRisks.length === 0) {
         checklistHTML += `
@@ -863,139 +903,331 @@ function renderRiskChecklist(stepName) {
     }
 
     checklistHTML += taskRisks.map((r, i) => {
-        const key = `${currentState.selectedTask}-${stepName}-${i}`;
+        const hazardHash = getHash(r.위험요인);
+        const taskHash = getHash(currentState.selectedTask);
+        const stepHash = getHash(stepName);
+        const key = `${taskHash}-${stepHash}-${hazardHash}`;
+        
         const isChecked = currentState.checkedItems.has(key);
         const notes = currentState.manualNotes[key] || { current: "", improvement: "" };
         
-        // Initialize dual risk matrix data if not exist
         const riskData = currentState.riskMatrixData[key] || { 
             current: { severity: 1, frequency: 1, score: 1 },
             residual: { severity: 1, frequency: 1, score: 1 }
         };
         
         const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
+        const isExpanded = currentState.expandedHazardKeys.has(key);
         
         return `
-            <div class="check-item ${isChecked ? 'checked' : ''} ${isChecked ? 'expanded' : ''}" id="risk-${i}" 
-                 style="width: 100% !important; min-width: 100% !important; box-sizing: border-box !important;">
-                <div class="check-item-header">
-                    <div class="check-indicator" onclick="toggleRisk(${i}, '${stepName}')">
+            <div class="check-item ${isChecked ? 'checked' : ''} ${isExpanded ? 'expanded' : ''}" id="risk-card-${i}" 
+                 style="width: 100% !important; min-width: 100% !important; padding: 1.1rem !important;">
+                
+                <div class="check-item-header" onclick="toggleAccordion(${i}, '${key}')" style="cursor: pointer;">
+                    <div class="check-indicator" onclick="event.stopPropagation(); toggleRiskByHash('${key}', '${stepName}')">
                         <i data-lucide="check"></i>
                     </div>
-                    <span class="risk" onclick="toggleAccordion(${i})">${r.위험요인}</span>
-                    <i data-lucide="chevron-down" class="expand-icon" onclick="toggleAccordion(${i})"></i>
+                    <span class="risk" style="flex: 1; font-weight: 900; color: #1e293b;">${r.위험요인}</span>
+                    <i data-lucide="chevron-down" class="expand-icon" style="transition: 0.3s; ${isExpanded ? 'transform: rotate(180deg);' : ''}"></i>
                 </div>
 
-                <div class="measure-container">
+                <div class="measure-container" id="measure-panel-${i}" style="margin-top: 0; display: ${isExpanded ? 'block' : 'none'};">
                     <!-- Section 1: 현재안전조치 -->
-                    <p style="font-size:0.8rem; font-weight:800; color:var(--doing-blue); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="shield-check" style="width:14px;"></i> [현재안전조치]
-                    </p>
-                    <ul class="measure-list" style="width: 100% !important; padding: 0 !important;">
-                        ${measures.map((m, mi) => {
-                            const mKey = `${key}-m-${mi}`;
-                            const isMChecked = currentState.checkedMeasures.has(mKey);
-                            return `
-                                <li class="measure-item ${isMChecked ? 'checked' : ''}" 
-                                    style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.5rem 0.25rem !important; margin-bottom: 4px !important; box-sizing: border-box !important;"
-                                    onclick="toggleMeasure('${mKey}', 'current', event)">
-                                    <div class="m-checkbox ${isMChecked ? 'active' : ''}" style="margin-right: 12px !important;">
-                                        <i data-lucide="check"></i>
-                                    </div>
-                                    <span style="flex: 1 !important; text-align: left !important; font-size: 0.95rem !important; line-height: 1.5 !important;">${m}</span>
-                                </li>
-                            `;
-                        }).join('')}
-                    </ul>
+                    <div style="margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                        <p style="font-size:0.85rem; font-weight:800; color:var(--doing-blue); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="shield-check" style="width:14px;"></i> [현재안전조치]
+                        </p>
+                        <ul class="measure-list" style="margin-bottom: 1rem;">
+                            ${measures.map((m, mi) => {
+                                const mKey = `${key}-m-${mi}`;
+                                const isMChecked = currentState.checkedMeasures.has(mKey);
+                                return `
+                                    <li class="measure-item ${isMChecked ? 'checked' : ''}" 
+                                        onclick="toggleMeasureByHash('${mKey}', 'current', '${stepName}', event)">
+                                        <div class="m-checkbox ${isMChecked ? 'active' : ''}">
+                                            <i data-lucide="check"></i>
+                                        </div>
+                                        <span style="flex: 1; font-size: 0.95rem;">${m}</span>
+                                    </li>
+                                `;
+                            }).join('')}
+                        </ul>
 
-                    <!-- Matrix 1: 현재 위험성 수준 평가 -->
-                    <div class="risk-matrix-controls current-matrix" style="border: none !important; background: none !important; padding: 0 !important;">
-                        <div class="manual-input-area" style="background: #f8fafc !important; border: 1px dashed #e2e8f0 !important; border-radius: 12px !important; padding: 12px !important;">
-                            <label class="manual-label"><i data-lucide="edit-3" style="width:14px;"></i> 현재 추가 안전조치 (수기 입력)</label>
+                        <div class="manual-input-area" style="margin-bottom: 1rem;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 800; color: #64748b; margin-bottom: 8px;">
+                                <i data-lucide="edit-3" style="width:14px;"></i> 현재 추가 안전조치 (수기 입력)
+                            </label>
                             <textarea class="manual-textarea" placeholder="기존 대책 외 추가된 현장 조치 내용을 입력하세요..." 
+                                style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; width: 100%; min-height: 80px; font-family: inherit;"
                                 oninput="updateManualNote('${key}', 'current', this.value)">${notes.current || ""}</textarea>
                         </div>
                         
-                        <p class="matrix-title" style="margin-top:20px;">현재 위험성 수준 평가</p>
-                        <div class="matrix-row-unified">
-                            <div class="row-item">
-                                <span class="row-label">강도</span>
-                                <select class="row-select" onchange="updateRiskScore(${i}, '${stepName}', 'current', 'severity', this.value)">
+                        <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(248, 250, 252, 0.8); padding: 0.85rem 1rem; border-radius: 16px; border: 1px solid #e2e8f0;">
+                                  <span style="font-weight: 800; color: #334155; font-size: 0.85rem; font-family: 'Outfit', sans-serif;">현재 위험성 수준</span>
+                            <div class="matrix-row-unified" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'current', 'severity', this.value)" 
+                                        style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.current.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
-                            </div>
-                            <div class="row-symbol">×</div>
-                            <div class="row-item">
-                                <span class="row-label">빈도</span>
-                                <select class="row-select" onchange="updateRiskScore(${i}, '${stepName}', 'current', 'frequency', this.value)">
+                                <span style="font-weight: 900; color: #94a3b8; font-size: 0.8rem;">×</span>
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'current', 'frequency', this.value)"
+                                        style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.current.frequency == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
-                            </div>
-                            <div class="row-symbol">=</div>
-                            <div class="row-result current">
-                                <span class="row-label">위험도</span>
-                                <span class="row-score ${getScoreClass(riskData.current.score)}">${riskData.current.score}</span>
+                                <span style="font-weight: 900; color: #94a3b8; font-size: 0.8rem;">=</span>
+                                <span class="row-score ${getScoreClass(riskData.current.score)}" 
+                                      style="min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 900; font-size: 1rem; box-shadow: var(--shadow-sm);">
+                                    ${riskData.current.score}
+                                </span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Section 2: 개선대책 및 잔류 위험성 -->
-                    <div class="residual-cleanup-area" style="margin-top: 1.5rem !important; border-top: 1px solid #f1f5f9 !important; padding-top: 1.5rem !important;">
-                        <p style="font-size:0.8rem; font-weight:800; color:var(--doing-accent); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                            <i data-lucide="wrench" style="width:14px;"></i> [개선대책 및 잔류 위험도 점검]
+                    <div style="margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                        <p style="font-size:0.85rem; font-weight:900; color:var(--doing-accent); margin-bottom:14px; display:flex; align-items:center; gap:8px; font-family: 'Outfit', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i data-lucide="wrench" style="width:16px;"></i> [개선대책]
                         </p>
                     
-                    ${measures.some((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)) ? `
-                        <ul class="measure-list improvement" style="width: 100% !important; padding: 0 !important;">
+                        <ul class="measure-list improvement" style="margin-bottom: 1rem;">
                             ${measures.map((m, mi) => {
                                 const mKey = `${key}-m-${mi}`;
-                                if (currentState.checkedMeasures.has(mKey)) return '';
+                                const isMChecked = currentState.checkedMeasures.has(mKey);
                                 const isMImproved = currentState.improvedMeasures.has(mKey);
+                                
+                                // [개선] 현재 실천 중(Checked)인 항목은 개선대책 목록에서 제외
+                                if (isMChecked) return '';
+                                
                                 return `
                                     <li class="measure-item ${isMImproved ? 'improved' : ''}" 
-                                        style="width: 100% !important; display: flex !important; align-items: flex-start !important; padding: 0.5rem 0.25rem !important; margin-bottom: 4px !important; box-sizing: border-box !important;"
-                                        onclick="toggleMeasure('${mKey}', 'improve', event)">
-                                        <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}" style="margin-right: 12px !important;">
+                                        onclick="toggleMeasureByHash('${mKey}', 'improve', '${stepName}', event)"
+                                        style="transition: all 0.3s ease; cursor: pointer; border-radius: 12px; margin-bottom: 6px;">
+                                        <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}">
                                             <i data-lucide="check"></i>
                                         </div>
-                                        <span style="flex: 1 !important; text-align: left !important; font-size: 0.95rem !important; line-height: 1.5 !important;">${m}</span>
+                                        <span style="flex: 1; font-size: 0.95rem; font-weight: 500; color: #334155;">${m}</span>
+                                    </li>
+                                `;
+                            }).join('')}
+                            ${measures.every((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)) ? 
+                                `<li style="text-align:center; padding:15px; color:#94a3b8; font-size:0.85rem; background:#f8fafc; border-radius:12px; border:1px dashed #e2e8f0;">✅ 모든 표준 안전조치가 실천 중입니다.</li>` : ''}
+                        </ul>
+
+                        <div class="manual-input-area" style="margin-bottom: 1rem;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 900; color: var(--doing-accent); margin-bottom: 10px; font-family: 'Outfit', sans-serif;">
+                                <i data-lucide="wrench" style="width:16px;"></i> 추가 개선대책 입력 (수기)
+                            </label>
+                            <textarea class="manual-textarea" placeholder="위험을 줄이기 위한 추가 개선 의견을 입력하세요..." 
+                                style="background: rgba(254, 242, 242, 0.5); border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 16px; padding: 1.25rem; width: 100%; min-height: 90px; font-family: inherit; font-size: 0.95rem;"
+                                oninput="updateManualNote('${key}', 'improvement', this.value)">${notes.improvement || ""}</textarea>
+                        </div>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(254, 242, 242, 0.5); padding: 0.85rem 1rem; border-radius: 16px; border: 1.5px solid rgba(244, 63, 94, 0.1);">
+                            <span style="font-weight: 800; color: var(--doing-accent); font-size: 0.85rem; font-family: 'Outfit', sans-serif;">개선 후 잔류위험</span>
+                            <div class="matrix-row-unified" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'severity', this.value)"
+                                        style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
+                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                                <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4); font-size: 0.8rem;">×</span>
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'frequency', this.value)"
+                                        style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
+                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.frequency == v ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                                <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4); font-size: 0.8rem;">=</span>
+                                <span class="row-score ${getScoreClass(riskData.residual.score)}" 
+                                      style="min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 900; font-size: 1rem; box-shadow: var(--shadow-sm);">
+                                    ${riskData.residual.score}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // --- [NEW] 수동 추가된 위험요인 렌더링 ---
+    const manualRisks = (currentState.manualHazards || []).filter(mr => mr.stepName === stepName);
+    const manualHTML = manualRisks.map((mr, mi) => {
+        const key = mr.id; // 이미 고유한 ID(hash)를 가지고 있음
+        const isChecked = currentState.checkedItems.has(key);
+        const isExpanded = currentState.expandedHazardKeys.has(key);
+        const riskData = currentState.riskMatrixData[key] || {
+            current: { severity: 1, frequency: 1, score: 1 },
+            residual: { severity: 1, frequency: 1, score: 1 }
+        };
+        const notes = currentState.manualNotes[key] || { current: mr.currentMeasures || "", improvement: "" };
+
+        return `
+            <div class="check-item manual ${isChecked ? 'checked' : ''} ${isExpanded ? 'expanded' : ''}" id="risk-card-m-${mi}" 
+                 style="width: 100% !important; min-width: 100% !important; padding: 1.1rem !important; border-left: 5px solid var(--doing-gold) !important;">
+                
+                <div class="check-item-header" onclick="toggleAccordion('m-${mi}', '${key}')" style="cursor: pointer;">
+                    <div class="check-indicator" onclick="event.stopPropagation(); toggleRiskByHash('${key}', '${stepName}')">
+                        <i data-lucide="check"></i>
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                            <span style="font-size: 0.7rem; color: var(--doing-gold); font-weight: 800; text-transform: uppercase;">Manual Entry</span>
+                            <button onclick="event.stopPropagation(); deleteManualHazard('${key}', '${stepName}')" 
+                                    style="background: none; border: none; color: #ef4444; padding: 0 4px; cursor: pointer; opacity: 0.6; height: 20px;">
+                                <i data-lucide="trash-2" style="width: 14px;"></i>
+                            </button>
+                        </div>
+                        <span class="risk" style="font-weight: 950; color: #1e293b; font-size: 1.1rem;">${mr.hazardName}</span>
+                    </div>
+                    <i data-lucide="chevron-down" class="expand-icon" style="transition: 0.3s; ${isExpanded ? 'transform: rotate(180deg);' : ''}"></i>
+                </div>
+
+                <div class="measure-container" id="measure-panel-m-${mi}" style="margin-top: 0; display: ${isExpanded ? 'block' : 'none'};">
+                    <!-- Section 1: 현재안전조치 -->
+                    <div style="margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                        <p style="font-size:0.85rem; font-weight:900; color:var(--doing-indigo); margin-bottom:14px; display:flex; align-items:center; gap:8px; font-family: 'Outfit', sans-serif;">
+                            <i data-lucide="shield-check" style="width:16px;"></i> [현재안전조치]
+                        </p>
+                        
+                        <!-- [NEW] 수동 조치 리스트 -->
+                        <ul class="measure-list" style="margin-bottom: 1rem;">
+                            ${(currentState.manualHazardItems[key]?.current || []).map((m, mIdx) => {
+                                const mKey = `${key}-mc-${mIdx}`;
+                                const isMChecked = currentState.checkedMeasures.has(mKey);
+                                return `
+                                    <li class="measure-item ${isMChecked ? 'checked' : ''}" 
+                                        onclick="toggleMeasureByHash('${mKey}', 'current', '${stepName}', event)">
+                                        <div class="m-checkbox ${isMChecked ? 'active' : ''}">
+                                            <i data-lucide="check"></i>
+                                        </div>
+                                        <span style="flex: 1; font-size: 0.95rem;">${m}</span>
+                                        <button onclick="event.stopPropagation(); removeManualMeasure('${key}', 'current', ${mIdx}, '${stepName}')" 
+                                                style="background:none; border:none; color:#cbd5e1; cursor:pointer; padding:5px;">
+                                            <i data-lucide="x-circle" style="width:14px;"></i>
+                                        </button>
                                     </li>
                                 `;
                             }).join('')}
                         </ul>
-                    ` : '<p style="font-size:0.75rem; color:#64748b; margin-bottom:12px; padding-left:4px;">현재 조치가 모두 완료되었습니다. 최종 위험도를 평가하세요.</p>'}
 
-                    <!-- Matrix 2: 개선 후 위험성 수준 -->
-                    <div class="risk-matrix-controls residual-matrix">
-                        <div class="manual-input-area" style="border-color: #f87171; background: rgba(254, 242, 242, 0.5);">
-                            <label class="manual-label" style="color: #ef4444;"><i data-lucide="wrench" style="width:14px;"></i> 추가 개선대책 입력 (수기)</label>
-                            <textarea class="manual-textarea" placeholder="위험을 줄이기 위한 추가 개선 의견을 자유롭게 입력하세요..." 
-                                oninput="updateManualNote('${key}', 'improvement', this.value)">${notes.improvement || ""}</textarea>
+                        <!-- [NEW] 조치 추가 입력창 -->
+                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <input type="text" id="manual-input-${key}-current" placeholder="현재 시행 중인 조치 추가..." 
+                                   style="flex:1; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:0.9rem;"
+                                   onkeypress="if(event.key==='Enter') addManualMeasure('${key}', 'current', '${stepName}')">
+                            <button onclick="addManualMeasure('${key}', 'current', '${stepName}')" 
+                                    style="background:var(--doing-indigo); color:white; border:none; border-radius:10px; width:40px; height:38px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                                <i data-lucide="plus"></i>
+                            </button>
                         </div>
 
-                        <p class="matrix-title improved" style="margin-top:20px;">개선 후 위험성 수준 평가</p>
-                        <div class="matrix-row-unified">
-                            <div class="row-item">
-                                <span class="row-label">강도</span>
-                                <select class="row-select" onchange="updateRiskScore(${i}, '${stepName}', 'residual', 'severity', this.value)">
+                        <textarea class="manual-textarea" placeholder="추가적인 현재 안전조치 확인 내용을 입력하세요..." 
+                                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; width: 100%; min-height: 80px; font-family: inherit;"
+                                  oninput="updateManualNote('${key}', 'current', this.value)">${notes.current}</textarea>
+                        
+                        <div style="margin-top: 1rem; display: flex; align-items: center; justify-content: space-between; background: rgba(248, 250, 252, 0.8); padding: 1rem; border-radius: 18px; border: 1px solid #e2e8f0;">
+                            <span style="font-weight: 800; color: #334155; font-size: 0.9rem; font-family: 'Outfit', sans-serif;">현재 위험성 수준</span>
+                            <div class="matrix-row-unified" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'current', 'severity', this.value)" 
+                                        style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
+                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.current.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                                <span style="font-weight: 900; color: #94a3b8;">×</span>
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'current', 'frequency', this.value)"
+                                        style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
+                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.current.frequency == v ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                                <span style="font-weight: 900; color: #94a3b8;">=</span>
+                                <span class="row-score ${getScoreClass(riskData.current.score)}" 
+                                      style="min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 900;">
+                                    ${riskData.current.score}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: 개선대책 -->
+                    <div style="margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                        <p style="font-size:0.85rem; font-weight:900; color:var(--doing-accent); margin-bottom:14px; display:flex; align-items:center; gap:8px; font-family: 'Outfit', sans-serif;">
+                            <i data-lucide="wrench" style="width:16px;"></i> [개선대책]
+                        </p>
+
+                        <!-- [NEW] 수동 개선대책 리스트 (현재 조치 체크되지 않은 항목만 표시) -->
+                        <ul class="measure-list improvement" style="margin-bottom: 1rem;">
+                            ${(currentState.manualHazardItems[key]?.improve || []).map((m, mIdx) => {
+                                const mcKey = `${key}-mc-${mIdx}`; // 현재조치와 동일 인덱스 사용
+                                const miKey = `${key}-mi-${mIdx}`;
+                                const isMChecked = currentState.checkedMeasures.has(mcKey);
+                                const isMImproved = currentState.improvedMeasures.has(miKey);
+                                
+                                if (isMChecked) return '';
+
+                                return `
+                                    <li class="measure-item ${isMImproved ? 'improved' : ''}" 
+                                        onclick="toggleMeasureByHash('${miKey}', 'improve', '${stepName}', event)">
+                                        <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}">
+                                            <i data-lucide="check"></i>
+                                        </div>
+                                        <span style="flex: 1; font-size: 0.95rem;">${m}</span>
+                                        <button onclick="event.stopPropagation(); removeManualMeasure('${key}', 'improve', ${mIdx}, '${stepName}')" 
+                                                style="background:none; border:none; color:#cbd5e1; cursor:pointer; padding:5px;">
+                                            <i data-lucide="x-circle" style="width:14px;"></i>
+                                        </button>
+                                    </li>
+                                `;
+                            }).join('')}
+                        </ul>
+
+                        <!-- [NEW] 개선대책 추가 입력창 -->
+                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <input type="text" id="manual-input-${key}-improve" placeholder="필요한 개선 대책 추가..." 
+                                   style="flex:1; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:0.9rem;"
+                                   onkeypress="if(event.key==='Enter') { event.preventDefault(); addManualMeasure('${key}', 'improve', '${stepName.replace(/'/g, "\\'")}'); }">
+                            <button onclick="addManualMeasure('${key}', 'improve', '${stepName.replace(/'/g, "\\'")}')" 
+                                    style="background:var(--doing-accent); color:white; border:none; border-radius:10px; width:40px; height:38px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+
+                        <textarea class="manual-textarea" placeholder="추가 개선의견 또는 확인 사항을 입력하세요..." 
+                                  style="background: rgba(254, 242, 242, 0.5); border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 16px; padding: 1.25rem; width: 100%; min-height: 80px; font-family: inherit;"
+                                  oninput="updateManualNote('${key}', 'improvement', this.value)">${notes.improvement}</textarea>
+
+                        <div style="margin-top: 1.5rem; display: flex; align-items: center; justify-content: space-between; background: rgba(254, 242, 242, 0.5); padding: 1.25rem; border-radius: 20px; border: 1.5px solid rgba(244, 63, 94, 0.1);">
+                            <span style="font-weight: 800; color: var(--doing-accent); font-size: 0.9rem; font-family: 'Outfit', sans-serif;">개선 후 잔류위험</span>
+                            <div class="matrix-row-unified" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'severity', this.value)"
+                                        style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
-                            </div>
-                            <div class="row-symbol">×</div>
-                            <div class="row-item">
-                                <span class="row-label">빈도</span>
-                                <select class="row-select" onchange="updateRiskScore(${i}, '${stepName}', 'residual', 'frequency', this.value)">
+                                <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4);">×</span>
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'frequency', this.value)"
+                                        style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.frequency == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
-                            </div>
-                            <div class="row-symbol">=</div>
-                            <div class="row-result residual">
-                                <span class="row-label">잔류위험</span>
-                                <span class="row-score ${getScoreClass(riskData.residual.score)}">${riskData.residual.score}</span>
+                                <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4);">=</span>
+                                <span class="row-score ${getScoreClass(riskData.residual.score)}" 
+                                      style="min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 900;">
+                                    ${riskData.residual.score}
+                                </span>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
         `;
     }).join('');
+
+    checklistHTML += manualHTML;
+
+    // --- [NEW] 위험요인 추가 버튼 섹션 ---
+    checklistHTML += `
+        <div style="margin-top: 2rem; display: flex; justify-content: center; padding-bottom: 2rem; position: relative; z-index: 10;">
+            <button onclick="requestAddManualHazard('${stepName.replace(/'/g, "\\'")}')" 
+                    style="background: white; color: var(--doing-gold); border: 2px dashed var(--doing-gold); padding: 1.25rem 2rem; border-radius: 20px; font-weight: 900; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 10px; width: 100%; justify-content: center; transition: 0.3s; cursor: pointer !important; box-shadow: var(--shadow-sm); pointer-events: auto !important;">
+                <i data-lucide="plus-circle"></i>
+                새로운 위험요인 발견 및 추가하기
+            </button>
+        </div>
+    `;
 
     checklistHTML += `</div>`; // .checklist-items-area 닫기
 
@@ -1003,6 +1235,178 @@ function renderRiskChecklist(stepName) {
     initLucide();
     updateNextButton(taskRisks.length);
     checkIncidents(taskRisks);
+}
+
+// [NEW] 개선 단계(Phase 3)의 동적 리스트 렌더링 함수
+function renderImprovementPhase() {
+    const container = document.querySelector('#step-improvement .improvement-content-area');
+    if (!container) return;
+
+    // 0. 타겟 영역 초기화 및 상단 내비게이션 비움 (중복 방지)
+    const nextContainerFocus = document.getElementById('next-action-container');
+    if (nextContainerFocus) nextContainerFocus.innerHTML = '';
+    const improvedKeys = Array.from(currentState.improvedMeasures);
+    
+    if (improvedKeys.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 3rem 1.5rem; text-align: center; color: #64748b; background: white; border-radius: 24px; border: 1px dashed #e2e8f0;">
+                <i data-lucide="info" style="width:48px; height:48px; margin-bottom:1rem; opacity:0.3;"></i>
+                <div style="font-weight: 800; font-size: 1.1rem; color: #1e293b;">선택된 개선 조치가 없습니다.</div>
+                <div style="font-size: 0.9rem; margin-top: 8px;">모든 조치가 이행 중이거나 양호합니다. 바로 서명 단계로 이동하세요.</div>
+                <button class="btn btn-primary" onclick="nextStep(4)" style="margin-top:2rem; width:100%;">서명 및 제출 단계로 이동 <i data-lucide="chevron-right"></i></button>
+            </div>
+            
+            <div style="margin-top: 1.5rem; display: flex; justify-content: center;">
+                <button class="btn" onclick="switchPhase('step-2', true)" 
+                        style="background: #f1f5f9; color: #475569; width: 100%; height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <i data-lucide="arrow-left"></i> 이전 단계로 (점검 다시하기)
+                </button>
+            </div>
+        `;
+        initLucide();
+        return;
+    }
+
+    let itemsHTML = improvedKeys.map((mKey, idx) => {
+        let hazardName = "미정의 위험요인";
+        let measureName = "미정의 대책";
+
+        // 키 분석 및 정보 추출
+        if (mKey.includes('-mi-')) { // 수동 항목
+            const parts = mKey.split('-mi-');
+            const hId = parts[0];
+            const mIdx = parseInt(parts[1]);
+            const hazard = (currentState.manualHazards || []).find(h => h.id === hId);
+            if (hazard) {
+                hazardName = hazard.hazardName;
+                measureName = (currentState.manualHazardItems[hId]?.improve || [])[mIdx] || "수동 개선항목";
+            }
+        } else { // 표준 항목
+            const parts = mKey.split('-m-');
+            if (parts.length >= 2) {
+                const hazardHash = parts[0];
+                const mIdx = parseInt(parts[1]);
+                const risk = currentState.risks.find(r => getHash(r.위험요인) === hazardHash.split('-').pop());
+                if (risk) {
+                    hazardName = risk.위험요인;
+                    measureName = (Array.isArray(risk.개선대책) ? risk.개선대책[mIdx] : risk.개선대책) || "표준 개선대책";
+                }
+            }
+        }
+
+        const result = currentState.improvementResults[mKey] || { photo: null, note: "" };
+
+        return `
+            <div class="improvement-card" style="background: white; border-radius: 18px; padding: 1.15rem; border: 1px solid #f1f5f9; border-top: 5px solid var(--doing-accent); margin-bottom: 0.85rem; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 1.5rem;">
+                    <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 800; text-transform: uppercase;">IMPROVEMENT ITEM #${idx + 1}</span>
+                    <span style="font-size: 0.85rem; color: #64748b; font-weight: 700;">[사고유형] ${hazardName}</span>
+                    <span style="font-size: 1.1rem; color: #1e293b; font-weight: 900; line-height: 1.4;">${measureName}</span>
+                </div>
+
+                <div class="media-card" style="margin-bottom: 1rem; border: none; padding: 0;">
+                    <div class="photo-upload-box" onclick="document.getElementById('photo-input-${mKey}').click()" 
+                         id="preview-box-${mKey}" 
+                         style="background: #fffcfc; border: 2px dashed rgba(244, 63, 94, 0.2); height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px; cursor: pointer; transition: 0.3s; overflow: hidden;">
+                        ${result.photo 
+                            ? `<img src="${result.photo}" style="width: 100%; height: 100%; object-fit: cover;">` 
+                            : `<i data-lucide="camera" style="width:32px; height:32px; margin-bottom:8px; color:var(--doing-accent); opacity:0.4;"></i>
+                               <span style="font-size: 0.9rem; font-weight: 800; color: var(--doing-accent); opacity: 0.6;">개선 전/후 사진 촬영</span>`
+                        }
+                    </div>
+                    <input type="file" id="photo-input-${mKey}" accept="image/*" capture="environment" style="display:none;" 
+                           onchange="handleImprovementPhoto('${mKey}', this)">
+                </div>
+
+                <div class="manual-input-area" style="padding: 0; border: none;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 900; color: #475569; margin-bottom: 8px;">
+                        <i data-lucide="edit-3" style="width:14px;"></i> 조치 결과 입력
+                    </label>
+                    <textarea class="manual-textarea" placeholder="조치 내용 또는 확인 사항을 입력하세요..." 
+                              style="background: #fffcfc; border: 1.5px solid rgba(244, 63, 94, 0.1); border-radius: 12px; padding: 1rem; width: 100%; min-height: 80px; font-size:0.9rem;"
+                              oninput="updateImprovementNote('${mKey}', this.value)">${result.note}</textarea>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // 하단 공통 입력창 및 내비게이션
+    itemsHTML += `
+        <div class="manual-input-area" style="background:white; border-radius:20px; padding:1.25rem; border:1px solid #f1f5f9; margin-bottom: 1.5rem;">
+            <label class="ui-label" style="display:flex; align-items:center; gap:6px; font-weight: 900; font-size: 0.9rem;">
+                <i data-lucide="message-square" style="width:16px;"></i> 종합 개선 조치 의견
+            </label>
+            <textarea id="overall-improvement" class="manual-textarea" style="min-height:100px; margin-top:10px; font-size: 0.9rem;" 
+                      placeholder="현장 전체에 대한 종합적인 개선 의견을 입력하세요..." 
+                      oninput="currentState.overallImprovement = this.value">${currentState.overallImprovement || ""}</textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 2rem;">
+            <button class="btn" onclick="switchPhase('step-2', true)" 
+                    style="background: #f1f5f9; color: #475569; height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <i data-lucide="arrow-left"></i> 이전으로
+            </button>
+            <button class="btn btn-primary" onclick="nextStep(4)" 
+                    style="background: var(--doing-accent); height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                다음 (서명) <i data-lucide="chevron-right"></i>
+            </button>
+        </div>
+    `;
+
+    container.innerHTML = itemsHTML;
+    initLucide();
+}
+
+function handleImprovementPhoto(mKey, input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            // 이미지 리사이징 (성능 및 용량 최적화)
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const max = 1200;
+            
+            if (width > height) {
+                if (width > max) { height *= max / width; width = max; }
+            } else {
+                if (height > max) { width *= max / height; height = max; }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            
+            if (!currentState.improvementResults[mKey]) {
+                currentState.improvementResults[mKey] = { photo: null, note: "" };
+            }
+            currentState.improvementResults[mKey].photo = optimizedBase64;
+            
+            // 미리보기 업데이트
+            const previewBox = document.getElementById(`preview-box-${mKey}`);
+            if (previewBox) {
+                previewBox.innerHTML = `<img src="${optimizedBase64}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            }
+            showToast("📷 사진이 첨부되었습니다.");
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function updateImprovementNote(mKey, val) {
+    if (!currentState.improvementResults[mKey]) {
+        currentState.improvementResults[mKey] = { photo: null, note: "" };
+    }
+    currentState.improvementResults[mKey].note = val;
 }
 
 function checkIncidents(taskRisks) {
@@ -1022,8 +1426,74 @@ function checkIncidents(taskRisks) {
     }
 }
 
-function toggleRisk(index, stepName) {
-    const key = `${currentState.selectedTask}-${stepName}-${index}`;
+function requestAddManualHazard(stepName) {
+    const hazardName = prompt("발견된 새로운 위험요인명을 입력하세요:");
+    if (!hazardName || hazardName.trim() === "") return;
+
+    const id = `manual-${getHash(currentState.selectedTask)}-${getHash(stepName)}-${Date.now()}`;
+    const newHazard = {
+        id: id,
+        stepName: stepName,
+        hazardName: hazardName.trim(),
+        currentMeasures: ""
+    };
+
+    if (!currentState.manualHazards) currentState.manualHazards = [];
+    currentState.manualHazards.push(newHazard);
+    
+    // 조치 항목 저장소 초기화
+    currentState.manualHazardItems[id] = { current: [], improve: [] };
+    
+    // 즉시 펼쳐진 상태로 표시
+    currentState.expandedHazardKeys.add(id);
+    currentState.checkedItems.add(id); // 수동 추가는 기본적으로 체크된 것으로 간주
+
+    renderRiskChecklist(stepName);
+    showToast("✅ 새로운 위험요인이 목록 하단에 추가되었습니다.");
+}
+
+function deleteManualHazard(hazardId, stepName) {
+    if (confirm("이 위험요인을 통째로 삭제하시겠습니까?")) {
+        currentState.manualHazards = currentState.manualHazards.filter(h => h.id !== hazardId);
+        currentState.checkedItems.delete(hazardId);
+        currentState.expandedHazardKeys.delete(hazardId);
+        delete currentState.manualHazardItems[hazardId];
+        delete currentState.manualNotes[hazardId];
+        delete currentState.riskMatrixData[hazardId];
+        
+        renderRiskChecklist(stepName);
+        showToast("🗑️ 위험요인이 삭제되었습니다.");
+    }
+}
+
+function addManualMeasure(hazardId, type, stepName) {
+    const input = document.getElementById(`manual-input-${hazardId}-${type}`);
+    const val = input ? input.value.trim() : "";
+    
+    if (!val) {
+        showToast("⚠️ 추가할 내용을 입력하세요.");
+        return;
+    }
+
+    if (!currentState.manualHazardItems[hazardId]) {
+        currentState.manualHazardItems[hazardId] = { current: [], improve: [] };
+    }
+
+    currentState.manualHazardItems[hazardId][type].push(val);
+    input.value = ""; // 입력창 초기화
+    
+    renderRiskChecklist(stepName);
+    showToast("✅ 조치 항목이 추가되었습니다.");
+}
+
+function removeManualMeasure(hazardId, type, mIndex, stepName) {
+    if (confirm("이 항목을 삭제하시겠습니까?")) {
+        currentState.manualHazardItems[hazardId][type].splice(mIndex, 1);
+        renderRiskChecklist(stepName);
+    }
+}
+
+function toggleRiskByHash(key, stepName) {
     if (currentState.checkedItems.has(key)) {
         currentState.checkedItems.delete(key);
     } else {
@@ -1032,12 +1502,29 @@ function toggleRisk(index, stepName) {
     renderRiskChecklist(stepName);
 }
 
-function toggleAccordion(index) {
-    const item = document.getElementById(`risk-${index}`);
-    if (item) item.classList.toggle('expanded');
+function toggleAccordion(index, key) {
+    const targetCard = document.getElementById(`risk-card-${index}`);
+    
+    if (targetCard) {
+        if (currentState.expandedHazardKeys.has(key)) {
+            currentState.expandedHazardKeys.delete(key);
+        } else {
+            currentState.expandedHazardKeys.add(key);
+        }
+    }
+    // [수정] 상태 변경 후 화면을 다시 그려서 상세 내용(display:block/none)이 반영되도록 함
+    renderRiskChecklist(currentState.selectedStep);
+    
+    // 부드러운 스크롤 (렌더링 후 약간의 지연 필요)
+    setTimeout(() => {
+        const newTarget = document.getElementById(`risk-card-${index}`);
+        if (newTarget && currentState.expandedHazardKeys.has(key)) {
+            newTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
 }
 
-function toggleMeasure(mKey, type, event) {
+function toggleMeasureByHash(mKey, type, stepName, event) {
     event.stopPropagation();
     
     if (type === 'current') {
@@ -1045,7 +1532,6 @@ function toggleMeasure(mKey, type, event) {
             currentState.checkedMeasures.delete(mKey);
         } else {
             currentState.checkedMeasures.add(mKey);
-            // If checked in current, it shouldn't be in improved
             currentState.improvedMeasures.delete(mKey);
         }
     } else if (type === 'improve') {
@@ -1057,16 +1543,16 @@ function toggleMeasure(mKey, type, event) {
     }
     
     // Auto-check parent hazard
-    const hazardKey = mKey.split('-m-')[0];
+    const parts = mKey.split('-m-');
+    const hazardKey = parts[0];
     if (!currentState.checkedItems.has(hazardKey)) {
         currentState.checkedItems.add(hazardKey);
     }
 
-    renderRiskChecklist(currentState.selectedStep);
+    renderRiskChecklist(stepName);
 }
 
-function updateRiskScore(index, stepName, matrixType, field, value) {
-    const key = `${currentState.selectedTask}-${stepName}-${index}`;
+function updateRiskScoreByHash(key, stepName, matrixType, field, value) {
     if (!currentState.riskMatrixData[key]) {
         currentState.riskMatrixData[key] = { 
             current: { severity: 1, frequency: 1, score: 1 },
@@ -1096,27 +1582,47 @@ function updateNextButton(totalInStep) {
     const container = document.getElementById('next-action-container');
     if (!container) return;
 
-    // 현재 단계에서 체크된 항목 수 계산
+    // 현재 단계의 모든 위험요인 가져오기 (이미 렌더링 시 필터링된 count 사용)
     const currentCheckedCount = Array.from(currentState.checkedItems).filter(key => 
-        key.startsWith(`${currentState.selectedTask}-${currentState.selectedStep}`)
+        key.startsWith(`${getHash(currentState.selectedTask)}-${getHash(currentState.selectedStep)}`)
     ).length;
     
-    // 모든 항목이 체크되었거나 항목이 없는 경우 버튼 노출
-    if (currentCheckedCount >= totalInStep) {
-        const isLastStep = currentState.currentStepIndex === currentState.availableSteps.length - 1;
-        const btnText = isLastStep ? "평가 완료 (개선 단계로 이동) <i data-lucide='check-check'></i>" : "다음 작업단계로 이동 <i data-lucide='arrow-right'></i>";
-        
-        container.innerHTML = `
-            <div class="next-action-area active" style="margin-top:2rem; animation:fadeInUp 0.5s ease-out;">
-                <button class="btn btn-primary" style="width:100%; border-radius:18px; padding:1.2rem;" onclick="nextStep(3)">
-                    ${btnText}
+    // [개선] 모든 항목 체크 의무화 해제 및 이전/다음 유연한 네비게이션
+    const isFirstStep = currentState.currentStepIndex === 0;
+    const isLastStep = currentState.currentStepIndex === currentState.availableSteps.length - 1;
+    
+    const nextBtnText = isLastStep ? "평가 완료 <i data-lucide='check-check'></i>" : "다음단계 <i data-lucide='arrow-right'></i>";
+    const prevBtnText = "<i data-lucide='arrow-left'></i> 이전단계";
+    const progressText = `(${currentCheckedCount}/${totalInStep})`;
+
+    container.innerHTML = `
+        <div class="next-action-area active" style="margin-top:2rem; display: flex; flex-direction: column; gap: 12px; animation: fadeInUp 0.5s ease-out;">
+            <!-- 단계 이동 버튼 그룹 -->
+            <div style="display: grid; grid-template-columns: ${isFirstStep ? '1fr' : '1fr 1fr'}; gap: 10px;">
+                ${!isFirstStep ? `
+                    <button class="btn btn-secondary" 
+                            style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border:1.5px solid #e2e8f0; color:#475569; font-weight:800; font-family:'Outfit', sans-serif;" 
+                            onclick="prevStep()">
+                        ${prevBtnText}
+                    </button>
+                ` : ''}
+                <button class="btn btn-primary" 
+                        style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; gap:10px; background: var(--doing-indigo); box-shadow: var(--shadow-md);" 
+                        onclick="nextStep(3)">
+                    <span>${nextBtnText}</span>
+                    <span style="font-size:0.8rem; opacity:0.8;">${progressText}</span>
                 </button>
             </div>
-        `;
-        if (window.lucide) window.lucide.createIcons();
-    } else {
-        container.innerHTML = '';
-    }
+
+            <!-- 처음으로 버튼 (대시보드) -->
+            <button class="btn btn-secondary-outline" 
+                    style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; background:#ffffff; border:1px solid #e2e8f0; color:#1e293b; font-weight:800; font-family:'Outfit', sans-serif;" 
+                    onclick="location.reload()">
+                처음으로
+            </button>
+        </div>
+    `;
+    if (window.lucide) window.lucide.createIcons();
 }
 
 function initEventListeners() {
@@ -1193,11 +1699,19 @@ async function submitLog() {
     // 1. 실시로그용 데이터
     const logs = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
-        const index = parseInt(parts[parts.length - 1]);
-        const step = parts.slice(1, parts.length - 1).join('-');
-        const task = parts[0];
-        const risksAtStep = currentState.risks.filter(r => r.작업단계 === step && r.작업명 === task);
-        const r = risksAtStep[index];
+        if (parts.length < 3) return null;
+
+        const taskHash = parts[0];
+        const stepHash = parts[1];
+        const hazardHash = parts[2];
+
+        // 해시 값이 일치하는 위험요인 찾기
+        const r = currentState.risks.find(risk => 
+            getHash(risk.작업명) === taskHash &&
+            getHash(risk.작업단계) === stepHash &&
+            getHash(risk.위험요인) === hazardHash
+        );
+        
         if (!r) return null;
 
         const riskData = currentState.riskMatrixData[key] || {
@@ -1233,11 +1747,18 @@ async function submitLog() {
     // 2. 개선대책 실행계획서용 데이터
     const improvementPlan = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
-        const index = parseInt(parts[parts.length - 1]);
-        const step = parts.slice(1, parts.length - 1).join('-');
-        const task = parts[0];
-        const risksAtStep = currentState.risks.filter(r => r.작업단계 === step && r.작업명 === task);
-        const r = risksAtStep[index];
+        if (parts.length < 3) return null;
+
+        const taskHash = parts[0];
+        const stepHash = parts[1];
+        const hazardHash = parts[2];
+
+        const r = currentState.risks.find(risk => 
+            getHash(risk.작업명) === taskHash &&
+            getHash(risk.작업단계) === stepHash &&
+            getHash(risk.위험요인) === hazardHash
+        );
+        
         if (!r) return null;
 
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
