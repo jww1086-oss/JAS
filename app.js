@@ -242,6 +242,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!history.state) {
         history.replaceState({ phase: 'dashboard' }, "", "");
     }
+    
+    // [NEW] 앱 시작 시 초기 화면(대시보드)으로 강제 전환하여 레이아웃 정리
+    switchPhase('dashboard', true);
 
     window.onpopstate = (event) => {
         if (event.state && event.state.phase) {

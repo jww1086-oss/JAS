@@ -106,6 +106,19 @@ body {
 .section-header h2 { font-size: 1.5rem; font-weight: 950; color: #1e293b; letter-spacing: -1px; }
 .section-header p { font-size: 0.9rem; color: #64748b; font-weight: 600; margin-top: 4px; }
 
+/* Phase Display Logic */
+.phase { 
+    display: none; 
+    opacity: 0; 
+    transform: translateY(10px); 
+    transition: opacity 0.3s ease, transform 0.3s ease; 
+}
+.phase.active { 
+    display: block; 
+    opacity: 1; 
+    transform: translateY(0);
+}
+
 /* UI Components */
 .worker-input-card { background: white; border-radius: 20px; padding: 1.5rem; border: 1.5px solid #f1f5f9; margin-bottom: 20px; }
 .ui-label { display: block; font-size: 0.85rem; font-weight: 900; color: #64748b; margin-bottom: 10px; }
@@ -140,11 +153,35 @@ body {
 .measure-container { max-height: 0; overflow: hidden; opacity: 0; transition: 0.4s; }
 .check-item.expanded .measure-container { max-height: 2000px; opacity: 1; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1.2px dashed #e2e8f0; }
 
+/* Phase Display Logic - Essential for SPA */
+.phase { 
+    display: none; 
+    opacity: 0; 
+    transform: translateY(10px); 
+    transition: opacity 0.3s ease, transform 0.3s ease; 
+}
+.phase.active { 
+    display: block; 
+    opacity: 1; 
+    transform: translateY(0);
+}
+
+/* Icon Box Color Utilities - Premium Palette */
+.icon-box.color-blue { background: #eff6ff; color: #3b82f6; }
+.icon-box.color-cyan { background: #ecfeff; color: #0891b2; }
+.icon-box.color-purple { background: #f5f3ff; color: #8b5cf6; }
+.icon-box.color-orange { background: #fff7ed; color: #f97316; }
+.icon-box.color-pink-light { background: #fdf2f8; color: #db2777; }
+.icon-box.color-blue-light { background: #f0f9ff; color: #0ea5e9; }
+.icon-box.color-teal { background: #f0fdfa; color: #0d9488; }
+.icon-box.color-green { background: #f0fdf4; color: #16a34a; }
+.icon-box.color-orange-light { background: #fffbeb; color: #d97706; }
+
 /* Buttons */
 .btn { width: 100%; height: 60px; border-radius: 20px; border: none; font-size: 1.15rem; font-weight: 950; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .btn-primary { background: var(--doing-blue); color: white; box-shadow: 0 10px 25px var(--doing-blue-glow); }
 .btn-primary:active { transform: scale(0.96); opacity: 0.9; }
-.btn-secondary { background: #f1f5f9; color: #475569; border: 1.5px solid #e2e8f0; height: 45px; font-size: 0.9rem; margin-top: 10px; }
+.btn-secondary { background: #f1f5f9; color: #475569; border: 1.5px solid #e2e8f0; height: 50px; font-size: 0.9rem; margin-top: 10px; }
 
 /* Reporting v25.0 */
 .hazard-report-card { background: white; border-radius: 20px; border: 1.8px solid #e2e8f0; margin-bottom: 1.25rem; overflow: hidden; box-shadow: var(--shadow-sm); }
