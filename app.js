@@ -43,13 +43,14 @@ function smartSplit(text) {
     return items.length > 0 ? items : [text.trim()];
 }
 
-// [NEW] 문자열 기반 고유 해시 생성 (인덱스 중복 방지)
+// [NEW] 정규화된 문자열 기반 고유 해시 생성 (공백/특수문자 무시)
 function getHash(str) {
     if (typeof str !== "string") return "0";
-    const s = str.trim(); // 공백 차이로 인한 해시 변형 방지
+    // 한글, 영문, 숫자만 남기고 모두 제거 (정규화)
+    const normalized = str.replace(/[^ㄱ-ㅎ|가-힣|a-z|A-Z|0-9]/g, ""); 
     let hash = 0;
-    for (let i = 0; i < s.length; i++) {
-        const char = s.charCodeAt(i);
+    for (let i = 0; i < normalized.length; i++) {
+        const char = normalized.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
         hash |= 0;
     }
@@ -924,8 +925,8 @@ function renderRiskChecklist(stepName) {
 
     checklistHTML += taskRisks.map((r, i) => {
         const hazardHash = getHash(r.위험요인);
-        const taskHash = getHash(currentState.selectedTask);
-        const stepHash = getHash(stepName);
+        const taskHash = getHash(currentState.selectedTask || "");
+        const stepHash = getHash(stepName || currentState.selectedStep || "");
         const key = `${taskHash}-${stepHash}-${hazardHash}`;
         
         const isChecked = currentState.checkedItems.has(key);
@@ -1527,7 +1528,9 @@ function toggleAccordion(index, key) {
     const measurePanel = document.getElementById(`measure-panel-${index}`);
     
     if (targetCard && measurePanel) {
-        if (currentState.expandedHazardKeys.has(key)) {
+        const isCurrentlyExpanded = currentState.expandedHazardKeys.has(key);
+        
+        if (isCurrentlyExpanded) {
             currentState.expandedHazardKeys.delete(key);
             targetCard.classList.remove('expanded');
             measurePanel.style.display = 'none';
@@ -1536,16 +1539,14 @@ function toggleAccordion(index, key) {
             targetCard.classList.add('expanded');
             measurePanel.style.display = 'block';
             
-            // 전역 Lucide 아이콘 재생성 (화살표 방향 상태 등 반영)
+            // Lucide 아이콘 재생성 및 부드러운 스크롤
             if (window.lucide) window.lucide.createIcons();
-
-            // 부드러운 스크롤
             setTimeout(() => {
-                targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 50);
         }
     } else {
-        // [예외처리] 혹시 DOM이 아직 안 그려졌거나 ID가 어긋난 경우 강제 리렌더링
+        // [예외처리] DOM이 없는 경우 강제 리렌더링
         if (currentState.expandedHazardKeys.has(key)) {
             currentState.expandedHazardKeys.delete(key);
         } else {
