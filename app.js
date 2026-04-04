@@ -775,6 +775,28 @@ function renderDepartmentList() {
 }
 
 function renderWorkers() {
+    const input = document.getElementById('worker-input');
+    const addBtn = document.getElementById('add-worker-btn');
+
+    // [추가] '+ 추가' 버튼 클릭 및 엔터 키 이벤트 바인딩
+    if (addBtn && input) {
+        addBtn.onclick = () => {
+            const val = input.value.trim();
+            if (val) {
+                addSelectedWorker(val);
+                input.value = '';
+                const dropdown = document.getElementById('worker-dropdown');
+                if (dropdown) dropdown.classList.remove('active');
+            }
+        };
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addBtn.click();
+            }
+        };
+    }
+
     setupCustomDropdown(
         'worker-input', 
         'worker-dropdown', 
@@ -784,9 +806,10 @@ function renderWorkers() {
         })),
         (val) => { 
             addSelectedWorker(val); 
-            document.getElementById('worker-input').value = ''; // 선택 후 초기화
+            if (input) input.value = ''; // 선택 후 초기화
         }
     );
+
     updateSelectedWorkersUI(); // 기존 선택 내역 복원
 }
 

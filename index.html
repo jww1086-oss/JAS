@@ -138,8 +138,9 @@
 
                 <div class="worker-input-card" style="padding:1.5rem 0 !important; margin-bottom:1rem !important;">
                     <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">평가자 성명 (다중 선택 가능)</label>
-                    <div class="form-group dropdown-container" style="margin-bottom:0.75rem;">
-                        <input type="text" id="worker-input" class="ui-input" style="height:48px;" placeholder="평가자를 검색하여 선택하세요" autocomplete="off">
+                    <div class="form-group dropdown-container" style="margin-bottom:0.75rem; display: flex; gap: 8px;">
+                        <input type="text" id="worker-input" class="ui-input" style="height:48px; flex: 1;" placeholder="평가자 성명 입력" autocomplete="off">
+                        <button type="button" id="add-worker-btn" class="btn btn-primary" style="height:48px; width: 80px; padding: 0; font-size: 0.9rem; flex-shrink: 0; border-radius: 12px; background: var(--doing-indigo); color: white; border: none; font-weight: 700; cursor: pointer;">+ 추가</button>
                         <div id="worker-dropdown" class="custom-dropdown"></div>
                     </div>
                     <!-- 선택된 평가자 칩 리스트 -->
