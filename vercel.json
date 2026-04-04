@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "framework": null,
+  "installCommand": null,
+  "buildCommand": null,
+  "outputDirectory": "./",
+  "name": "anti-gravity-safety"
+}

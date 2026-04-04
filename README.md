@@ -1,8 +1,8 @@
 # Anti-Gravity Safety System 🚀
 
-현장 안전 점검 및 위험성 평가를 위한 웹 애플리케이션입니다. Google Sheets를 데이터베이스로 사용하며, Netlify를 통해 전 세계 어디서든 접속 가능합니다.
+현장 안전 점검 및 위험성 평가를 위한 웹 애플리케이션입니다. Google Sheets를 데이터베이스로 사용하며, Vercel을 통해 전 세계 어디서든 접속 가능합니다.
 
-## 🛠️ 배포 가이드 (GitHub & Netlify)
+## 🛠️ 배포 가이드 (GitHub & Vercel)
 
 ### 1단계: GitHub에 코드 올리기
 1. [GitHub](https://github.com/)에 로그인하여 새로운 저장소(Repository)를 생성합니다. (이름: `anti-gravity-safety`)
@@ -16,12 +16,12 @@
    git push -u origin main
    ```
 
-### 2단계: Netlify 연결 및 배포
-1. [Netlify](https://www.netlify.com/)에 접속하여 로그인합니다.
-2. **[Add new site] > [Import an existing project]** 를 선택합니다.
-3. **[Deploy with GitHub]** 를 클릭하여 위에서 만든 저장소를 선택합니다.
-4. 설정값은 기본값(Build command: 없음, Publish directory: `/`)으로 두고 **[Deploy]** 버튼을 누릅니다.
-5. 배포가 완료되면 `https://xxxx-xxxx.netlify.app` 형식의 전용 URL이 생성됩니다!
+### 2단계: Vercel 연결 및 배포
+1. [Vercel](https://vercel.com/)에 접속하여 로그인합니다.
+2. **[Add New...] > [Project]** 를 선택합니다.
+3. 위에서 만든 GitHub 저장소를 **[Import]** 합니다.
+4. 설정값(Build & Development Settings)은 건드리지 않고 **[Deploy]** 버튼을 누릅니다. (`vercel.json`에 의해 자동 설정됩니다.)
+5. 배포가 완료되면 `https://xxxx.vercel.app` 형식의 전용 URL이 생성됩니다!
 
 ## 🔧 기술 설정 필수 사항
 

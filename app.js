@@ -687,6 +687,9 @@ async function fetchInitialData() {
             });
             currentState.risks = allRisks;
             
+            // [오프라인 지원] 로컬 스토리지에 백업 저장
+            localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
+            
             // 현재 화면이 Step 1(부서 선택)인 경우 UI 업데이트
             const container = document.getElementById('selection-container');
             if (container && container.offsetParent !== null) {
@@ -696,8 +699,14 @@ async function fetchInitialData() {
             console.log("✅ 실시간 위험성 마스터 로드 및 자동 분할 완료:", currentState.risks.length, "건");
         }
     } catch (error) {
-        console.warn("⚠️ 위험성 데이터 로드 실패, 기본 데이터를 유지합니다:", error);
-        if (currentState.risks.length === 0) {
+        console.warn("⚠️ 위험성 데이터 로드 실패, 캐시된 데이터를 확인합니다:", error);
+        const cached = localStorage.getItem('kosha_cached_risks');
+        if (cached) {
+            currentState.risks = JSON.parse(cached);
+            console.log("📂 로컬 캐시 데이터 로드 완료:", currentState.risks.length, "건");
+            renderDeptBanners();
+            showToast("📡 오프라인 모드: 기존 점검 데이터를 사용합니다.");
+        } else if (currentState.risks.length === 0) {
             loadMockData();
             renderDeptBanners();
         }
@@ -713,14 +722,20 @@ async function fetchInitialData() {
                 직책: cleanValue(u.직책 || ""),
                 경력: cleanValue(u.경력 || "")
             }));
+            localStorage.setItem('kosha_cached_users', JSON.stringify(currentState.users));
             renderWorkers();
             console.log("✅ 실시간 근로자 명단 로드 성공:", currentState.users.length, "건");
         }
     } catch (error) {
-        console.warn("⚠️ 근로자 명단 로드 실패 (보안 차단 가능성)");
+        const cachedUsers = localStorage.getItem('kosha_cached_users');
+        if (cachedUsers) {
+            currentState.users = JSON.parse(cachedUsers);
+            renderWorkers();
+        }
+        console.warn("⚠️ 근로자 명단 로드 실패 (캐시 사용 시도)");
     }
     
-    if (currentState.risks.length > 0) {
+    if (currentState.risks.length > 0 && navigator.onLine) {
         showToast("📱 구글 시트와 실시간 연결되었습니다.");
     }
 }
@@ -1693,44 +1708,27 @@ async function submitLog() {
     const today = new Date().toLocaleDateString('ko-KR');
     const overlay = document.getElementById('loading-overlay');
     const loadingText = overlay.querySelector('p');
-    if (loadingText) loadingText.innerText = "데이터를 구글 시트로 전송 중입니다...";
+    if (loadingText) loadingText.innerText = "데이터를 처리 중입니다...";
     overlay.classList.add('active');
 
-    // 1. 실시로그용 데이터
+    // 1. 실시로그용 데이터 생성 (기본 로직 유지)
     const logs = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
         if (parts.length < 3) return null;
-
-        const taskHash = parts[0];
-        const stepHash = parts[1];
-        const hazardHash = parts[2];
-
-        // 해시 값이 일치하는 위험요인 찾기
         const r = currentState.risks.find(risk => 
-            getHash(risk.작업명) === taskHash &&
-            getHash(risk.작업단계) === stepHash &&
-            getHash(risk.위험요인) === hazardHash
+            getHash(risk.작업명) === parts[0] &&
+            getHash(risk.작업단계) === parts[1] &&
+            getHash(risk.위험요인) === parts[2]
         );
-        
         if (!r) return null;
-
         const riskData = currentState.riskMatrixData[key] || {
             current: { severity: 1, frequency: 1, score: 1 },
             residual: { severity: 1, frequency: 1, score: 1 }
         };
         const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
-        
-        const currentChecked = [
-            ...measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)),
-            mNotes.current
-        ].filter(v => v && v.trim()).join('\n');
-        
-        const improvedList = [
-            ...measures.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)),
-            mNotes.improvement
-        ].filter(v => v && v.trim()).join('\n');
-
+        const currentChecked = [...measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current].filter(v => v && v.trim()).join('\n');
+        const improvedList = [...measures.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
         return {
             hazard: r.위험요인,
             current_checked: currentChecked,
@@ -1744,47 +1742,19 @@ async function submitLog() {
         };
     }).filter(Boolean);
 
-    // 2. 개선대책 실행계획서용 데이터
+    // 2. 개선대책 실행계획서용 데이터 생성
     const improvementPlan = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
-        if (parts.length < 3) return null;
-
-        const taskHash = parts[0];
-        const stepHash = parts[1];
-        const hazardHash = parts[2];
-
-        const r = currentState.risks.find(risk => 
-            getHash(risk.작업명) === taskHash &&
-            getHash(risk.작업단계) === stepHash &&
-            getHash(risk.위험요인) === hazardHash
-        );
-        
+        const r = currentState.risks.find(risk => getHash(risk.작업명) === parts[0] && getHash(risk.작업단계) === parts[1] && getHash(risk.위험요인) === parts[2]);
         if (!r) return null;
-
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
         const riskData = currentState.riskMatrixData[key];
         const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
         const currentMeasuresChecked = measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`));
-        
-        const needsImprovement = mNotes.improvement.trim() !== "" || 
-                               (riskData && riskData.current.score >= 9) || 
-                               (currentMeasuresChecked.length < measures.length);
-
+        const needsImprovement = mNotes.improvement.trim() !== "" || (riskData && riskData.current.score >= 9) || (currentMeasuresChecked.length < measures.length);
         if (!needsImprovement) return null;
-
-        const improvements = [
-            ...measures.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)),
-            mNotes.improvement
-        ].filter(v => v && v.trim()).join('\n');
-
-        return {
-            department: currentState.selectedDept,
-            task_name: currentState.selectedTask,
-            hazard: r.위험요인,
-            improvement_measure: improvements || "현재 조치 완료 및 유지관리",
-            improvement_date: today,
-            manager: workerName
-        };
+        const improvements = [...measures.filter((_, mi) => !currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement].filter(v => v && v.trim()).join('\n');
+        return { department: currentState.selectedDept, task_name: currentState.selectedTask, hazard: r.위험요인, improvement_measure: improvements || "현재 조치 완료 및 유지관리", improvement_date: today, manager: workerName };
     }).filter(Boolean);
 
     const payload = {
@@ -1799,7 +1769,18 @@ async function submitLog() {
         signature: signaturePad.toDataURL()
     };
 
+    // [전략 변경] 오프라인 상태일 경우 즉시 큐에 저장
+    if (!navigator.onLine) {
+        queueSubmission(payload);
+        overlay.classList.remove('active');
+        showToast("📡 오프라인: 점검 내용이 기기에 저장되었습니다. (통신 연결 시 자동 전송)");
+        saveToHistory(payload); // 히스토리는 오프라인에서도 저장
+        setTimeout(() => location.reload(), 2000);
+        return;
+    }
+
     try {
+        if (loadingText) loadingText.innerText = "데이터를 전송 중입니다...";
         await fetch(GAS_URL, {
             method: "POST",
             mode: "no-cors",
@@ -1807,22 +1788,90 @@ async function submitLog() {
             headers: { 'Content-Type': 'text/plain' }
         });
 
-        // 3. 로컬 내역 저장 추가
         saveToHistory(payload);
-
-        // 전송 완료 안내 (no-cors 특성상 성공 가정)
         setTimeout(() => {
             overlay.classList.remove('active');
-            showToast("✅ 점검 결과가 구글 시트로 전송되었습니다.");
+            showToast("✅ 전송 완료되었습니다.");
             setTimeout(() => location.reload(), 2000);
         }, 1500);
 
     } catch (error) {
-        console.error("전송 오류:", error);
+        console.warn("⚠️ 전송 실패 (오프라인 저장 시도):", error);
+        queueSubmission(payload);
+        saveToHistory(payload);
         overlay.classList.remove('active');
-        showToast("❌ 전송 실패: 인터넷 연결 또는 설정을 확인하세요.");
+        showToast("📂 전송 오류로 내용을 로컬에 백업했습니다. (연결 시 자동 재시도)");
+        setTimeout(() => location.reload(), 2500);
     }
 }
+
+// [NEW] 오프라인 전송 큐 관리
+function queueSubmission(payload) {
+    const queue = JSON.parse(localStorage.getItem('kosha_pending_queue') || '[]');
+    queue.push({
+        id: Date.now(),
+        payload: payload
+    });
+    localStorage.setItem('kosha_pending_queue', JSON.stringify(queue));
+    updateConnectionStatusUI();
+}
+
+// [NEW] 동기화 로직
+async function syncPendingSubmissions() {
+    const queue = JSON.parse(localStorage.getItem('kosha_pending_queue') || '[]');
+    if (queue.length === 0 || !navigator.onLine) return;
+
+    console.log(`📡 동기화 시작: ${queue.length}건 대기 중`);
+    showToast(`🔄 연결 복구: 대기 중인 ${queue.length}건을 전송합니다...`);
+
+    const newQueue = [];
+    for (const item of queue) {
+        try {
+            await fetch(GAS_URL, {
+                method: "POST",
+                mode: "no-cors",
+                body: JSON.stringify(item.payload),
+                headers: { 'Content-Type': 'text/plain' }
+            });
+            console.log(`✅ 성공: ${item.id} 전송 완료`);
+        } catch (e) {
+            console.error(`❌ 실패: ${item.id} 전송 오류`, e);
+            newQueue.push(item); // 실패한 건 다시 큐에 유지
+        }
+    }
+    
+    localStorage.setItem('kosha_pending_queue', JSON.stringify(newQueue));
+    updateConnectionStatusUI();
+    if (newQueue.length === 0) {
+        showToast("✅ 모든 대기 데이터가 전송되었습니다.");
+    }
+}
+
+// [NEW] 네트워크 상태 UI 업데이트
+function updateConnectionStatusUI() {
+    const isOnline = navigator.onLine;
+    const queue = JSON.parse(localStorage.getItem('kosha_pending_queue') || '[]');
+    const indicator = document.getElementById('network-indicator');
+    if (!indicator) return;
+
+    if (!isOnline) {
+        indicator.innerHTML = `<span class="status-offline"><i data-lucide="wifi-off"></i> 오프라인</span>`;
+    } else if (queue.length > 0) {
+        indicator.innerHTML = `<span class="status-sync"><i data-lucide="refresh-cw"></i> 대기 ${queue.length}건</span>`;
+    } else {
+        indicator.innerHTML = `<span class="status-online"><i data-lucide="wifi"></i> 온라인</span>`;
+    }
+    if (window.lucide) window.lucide.createIcons();
+}
+
+// 이벤트 리스너 등록
+window.addEventListener('online', syncPendingSubmissions);
+window.addEventListener('offline', updateConnectionStatusUI);
+document.addEventListener('DOMContentLoaded', () => {
+    // 5초마다 동기화 시도 (혹시 온라인 이벤트가 누락될 경우 대비)
+    setInterval(syncPendingSubmissions, 10000);
+    updateConnectionStatusUI();
+});
 function showToast(msg) {
     const toast = document.getElementById('toast');
     toast.textContent = msg;

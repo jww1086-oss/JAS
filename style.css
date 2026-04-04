@@ -1101,3 +1101,49 @@ body {
 }
 
 @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- Network Status Styles --- */
+.network-status {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.3s ease;
+}
+.network-status span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.status-online {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #dcfce7;
+}
+.status-offline {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fee2e2;
+    animation: flash-red 2s infinite;
+}
+.status-sync {
+    background: #f0f9ff;
+    color: #0284c7;
+    border: 1px solid #e0f2fe;
+}
+.status-sync i {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes flash-red {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
