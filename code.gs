@@ -71,25 +71,27 @@ function doPost(e) {
       ]);
     });
     
-    // 2. '개선대책_실행계획서' 저장 (대상이 있는 경우만)
+    // 2. '개선대책_실행계획서' 저장 로직 (사용자 시트 순서에 맞춰 정렬 수정)
     if (data.improvement_plan && data.improvement_plan.length > 0) {
       let improveSheet = ss.getSheetByName("개선대책_실행계획서");
       
-      // 시트가 없으면 헤더와 함께 생성
+      // 시트가 없으면 생성 (제목 순서 지정)
       if (!improveSheet) {
         improveSheet = ss.insertSheet("개선대책_실행계획서");
-        improveSheet.appendRow(["부서명", "작업명", "위험요인", "개선대책", "개선일", "담당자"]);
-        improveSheet.getRange(1, 1, 1, 6).setBackground("#f1f5f9").setFontWeight("bold");
+        improveSheet.appendRow(["개선예정일", "담당부서", "작업명", "위험요인", "개선대책", "담당자", "상태"]);
+        improveSheet.getRange(1, 1, 1, 7).setBackground("#f1f5f9").setFontWeight("bold");
       }
       
+      // 데이터 입력 (시트 헤더와 순서 정확히 일치시킴)
       data.improvement_plan.forEach(plan => {
         improveSheet.appendRow([
-          plan.department,
-          plan.task_name,
-          plan.hazard,
-          plan.improvement_measure,
-          plan.improvement_date,
-          plan.manager
+          plan.improvement_date,   // A: 개선예정일
+          plan.department,         // B: 담당부서
+          plan.task_name,          // C: 작업명
+          plan.hazard,             // D: 위험요인
+          plan.improvement_measure,// E: 개선대책
+          plan.manager,            // F: 담당자
+          "진행중"                 // G: 상태 (기본값)
         ]);
       });
     }
