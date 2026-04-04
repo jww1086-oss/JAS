@@ -45,9 +45,11 @@ function smartSplit(text) {
 
 // [NEW] 문자열 기반 고유 해시 생성 (인덱스 중복 방지)
 function getHash(str) {
+    if (typeof str !== "string") return "0";
+    const s = str.trim(); // 공백 차이로 인한 해시 변형 방지
     let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
+    for (let i = 0; i < s.length; i++) {
+        const char = s.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
         hash |= 0;
     }
@@ -864,6 +866,9 @@ function updateManualNote(key, type, val) {
 }
 
 function renderRiskChecklist(stepName) {
+    if (!stepName) stepName = currentState.selectedStep;
+    else currentState.selectedStep = stepName; // 현재 렌더링 중인 단계를 전역 상태로 확정
+
     const container = document.getElementById('risk-checklist');
     if (!container) return;
 
@@ -1519,24 +1524,35 @@ function toggleRiskByHash(key, stepName) {
 
 function toggleAccordion(index, key) {
     const targetCard = document.getElementById(`risk-card-${index}`);
+    const measurePanel = document.getElementById(`measure-panel-${index}`);
     
-    if (targetCard) {
+    if (targetCard && measurePanel) {
+        if (currentState.expandedHazardKeys.has(key)) {
+            currentState.expandedHazardKeys.delete(key);
+            targetCard.classList.remove('expanded');
+            measurePanel.style.display = 'none';
+        } else {
+            currentState.expandedHazardKeys.add(key);
+            targetCard.classList.add('expanded');
+            measurePanel.style.display = 'block';
+            
+            // 전역 Lucide 아이콘 재생성 (화살표 방향 상태 등 반영)
+            if (window.lucide) window.lucide.createIcons();
+
+            // 부드러운 스크롤
+            setTimeout(() => {
+                targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+        }
+    } else {
+        // [예외처리] 혹시 DOM이 아직 안 그려졌거나 ID가 어긋난 경우 강제 리렌더링
         if (currentState.expandedHazardKeys.has(key)) {
             currentState.expandedHazardKeys.delete(key);
         } else {
             currentState.expandedHazardKeys.add(key);
         }
+        renderRiskChecklist(currentState.selectedStep);
     }
-    // [수정] 상태 변경 후 화면을 다시 그려서 상세 내용(display:block/none)이 반영되도록 함
-    renderRiskChecklist(currentState.selectedStep);
-    
-    // 부드러운 스크롤 (렌더링 후 약간의 지연 필요)
-    setTimeout(() => {
-        const newTarget = document.getElementById(`risk-card-${index}`);
-        if (newTarget && currentState.expandedHazardKeys.has(key)) {
-            newTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, 100);
 }
 
 function toggleMeasureByHash(mKey, type, stepName, event) {
