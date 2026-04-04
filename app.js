@@ -1639,7 +1639,11 @@ function updateNextButton(totalInStep) {
     
     const nextBtnText = isLastStep ? "평가 완료 <i data-lucide='check-check'></i>" : "다음단계 <i data-lucide='arrow-right'></i>";
     const prevBtnText = "<i data-lucide='arrow-left'></i> 이전단계";
-    const progressText = `(${currentCheckedCount}/${totalInStep})`;
+    const totalSteps = currentState.availableSteps.length;
+    const currentStepNum = currentState.currentStepIndex + 1;
+    // 다음 단계 번호 표시 (마지막 단계가 아니면 +1, 마지막이면 현재 번호 유지)
+    const nextStepDisplay = isLastStep ? currentStepNum : currentStepNum + 1;
+    const progressText = `(${nextStepDisplay} / ${totalSteps} 단계)`;
 
     container.innerHTML = `
         <div class="next-action-area active" style="margin-top:2rem; display: flex; flex-direction: column; gap: 12px; animation: fadeInUp 0.5s ease-out;">
