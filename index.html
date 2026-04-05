@@ -30,29 +30,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <link rel="stylesheet" href="style.css?v=25.2">
-    <style>
-        /* [v26.0] Print-to-PDF 핵심 엔진 스타일 */
-        @media print {
-            body * { visibility: hidden; }
-            #pdf-content-area, #pdf-content-area * , 
-            #preview-results-area, #preview-results-area * { 
-                visibility: visible !important; 
-            }
-            #pdf-content-area, #preview-results-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                border: none !important;
-                box-shadow: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            .doing-header, .bottom-nav, .btn-container, .report-actions, .phase-header, .section-header, .btn, .logo-area, .header-date, .status-indicator {
-                display: none !important;
-            }
-        }
-    </style>
 </head>
 <body>
     <div class="app-shell">

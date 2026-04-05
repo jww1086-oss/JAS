@@ -435,56 +435,65 @@ body {
 .assessor-chip button { transition: 0.2s; }
 .assessor-chip button:hover { color: var(--doing-accent) !important; transform: scale(1.2); }
  
- /* [v26.1] Print Logic - 인쇄 시 보고서만 깔끔하게 출력되도록 설정 */
+ /* [v26.1] Print Logic - 인쇄 시 보고서만 확실하게 출력되도록 초강력 모드 */
  @media print {
-     /* 불필요한 UI 숨기기 */
-     .doing-header, .bottom-nav, .stepper-container, .btn-container, .grid-card, 
-     .btn, .main-banner, .section-header p, #toast, .overlay, .hi-badge, 
-     #back-to-list-btn, #step1-home-btn, .section-header h2:not(#history-title, #step2-title) {
-         display: none !important;
+     /* 1. 모든 요소 일단 숨김 */
+     * {
+         visibility: hidden;
+         -webkit-print-color-adjust: exact !important;
+         print-color-adjust: exact !important;
      }
  
+     /* 2. 필수 레이아웃 및 보고서 영역만 수심 */
+     html, body, .app-shell, .mobile-frame, main, #app, 
+     #step-results, #result-detail-viewer, #pdf-content-area,
+     #step-4, #preview-results-area,
+     #pdf-content-area *, #preview-results-area * {
+         visibility: visible !important;
+         display: block !important;
+     }
+ 
+     /* 3. 배경 및 그림자 제거 (잉크 절약 및 깔끔한 PDF) */
      body {
          background: white !important;
-         padding: 0 !important;
-         margin: 0 !important;
      }
  
      .app-shell, .mobile-frame {
          width: 100% !important;
          max-width: 100% !important;
+         min-height: auto !important;
          box-shadow: none !important;
          padding: 0 !important;
          margin: 0 !important;
          background: white !important;
+         border: none !important;
      }
  
-     /* 보고서 영역 강제 표시 및 최적화 */
-     #result-detail-viewer, #step-results, #step-4, #preview-results-area, #pdf-content-area {
-         display: block !important;
-         opacity: 1 !important;
-         transform: none !important;
-         margin: 0 !important;
-         padding: 0 !important;
-         border: none !important;
+     /* 4. 보고서 컨테이너를 페이지 최상단으로 이동 */
+     #step-results, #step-4 {
+         position: absolute !important;
+         top: 0 !important;
+         left: 0 !important;
          width: 100% !important;
      }
  
      #pdf-content-area, #preview-results-area {
-         box-shadow: none !important;
+         padding: 0 !important;
+         margin: 0 !important;
          border: none !important;
-         padding: 10mm !important; /* A4 여백 확보 */
      }
  
-     /* 인쇄 시 페이지 나누기 방지 */
+     /* 5. 페이지 넘김 최적화 */
      .step-group, .improvement-card, .hazard-report-card {
          page-break-inside: avoid;
-         margin-bottom: 20px !important;
+         margin-bottom: 30px !important;
      }
- 
-     /* 텍스트 색상 및 배경 유지 (브라우저 설정에 따라 다를 수 있음) */
-     * {
-         -webkit-print-color-adjust: exact !important;
-         print-color-adjust: exact !important;
+     
+     /* [v26.1] 인쇄 시 절대 보이지 않아야 할 요소들 (Force Hide) */
+     .doing-header, .bottom-nav, .stepper-container, .btn-container, 
+     .btn, .main-banner, .section-header, .hi-badge, 
+     #back-to-list-btn, #step1-home-btn, #toast, .overlay {
+         display: none !important;
+         visibility: hidden !important;
      }
  }
