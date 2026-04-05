@@ -30,6 +30,29 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <link rel="stylesheet" href="style.css?v=25.2">
+    <style>
+        /* [v26.0] Print-to-PDF 핵심 엔진 스타일 */
+        @media print {
+            body * { visibility: hidden; }
+            #pdf-content-area, #pdf-content-area * , 
+            #preview-results-area, #preview-results-area * { 
+                visibility: visible !important; 
+            }
+            #pdf-content-area, #preview-results-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .doing-header, .bottom-nav, .btn-container, .report-actions, .phase-header, .section-header, .btn, .logo-area, .header-date, .status-indicator {
+                display: none !important;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="app-shell">
@@ -37,13 +60,13 @@
             <!-- Header -->
             <header class="doing-header">
                 <div class="logo-area">
-                    <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v25.2</span></h1>
+                    <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v26.3</span></h1>
                     <p style="font-size: 0.85rem; font-weight: 700; color: #64748b; margin-top: -2px;">한국중부발전</p>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div id="network-status" class="status-indicator">
                         <span class="dot"></span>
-                        <span class="status-text">연결 중...</span>
+                        <span class="status-text">준비 완료</span>
                     </div>
                     <div id="current-date" class="header-date"></div>
                 </div>
@@ -83,11 +106,11 @@
                         </div>
                         <span>위험성<br>평가</span>
                     </div>
-                    <div class="grid-card">
-                        <div class="icon-box color-cyan">
-                            <i data-lucide="construction"></i>
+                    <div class="grid-card" onclick="openResultsView()">
+                        <div class="icon-box" style="background:#10b981;">
+                            <i data-lucide="file-search"></i>
                         </div>
-                        <span>산업안전<br>보건법령</span>
+                        <span>점검 결과<br>조회</span>
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-purple">
@@ -142,75 +165,32 @@
                 </div>
                 
                 <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 2rem;">
-                    <button class="grid-card" onclick="startAssessment()" style="height: 110px; width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 20px; padding: 0 1.5rem; border: 2px solid var(--doing-indigo); background: white; cursor: pointer; border-radius: 20px; box-shadow: var(--shadow-sm);">
-                        <div class="icon-box color-blue" style="width: 48px; height: 48px; flex-shrink: 0; background: #e0f2fe; color: #0369a1;">
+                    <button class="btn-choice-card assessment" onclick="startAssessment()">
+                        <div class="icon-box color-blue" style="background: #e0f2fe; color: #0369a1;">
                             <i data-lucide="edit-3"></i>
                         </div>
                         <div style="text-align: left;">
-                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--doing-indigo);">위험성평가 실시</div>
-                            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">새로운 안전 점검을 시작합니다.</div>
+                            <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-indigo);">위험성평가 실시</div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px; font-weight: 600;">새로운 안전 점검을 시작합니다.</div>
                         </div>
                     </button>
                     
-                    <button class="grid-card" onclick="openResultsView()" style="height: 110px; width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 20px; padding: 0 1.5rem; border: 2px solid var(--doing-green); background: white; cursor: pointer; border-radius: 20px; box-shadow: var(--shadow-sm);">
-                        <div class="icon-box color-green" style="width: 48px; height: 48px; flex-shrink: 0; background: #f0fdf4; color: #15803d;">
+                    <button class="btn-choice-card results" onclick="openResultsView()">
+                        <div class="icon-box color-green" style="background: #f0fdf4; color: #15803d;">
                             <i data-lucide="file-search"></i>
                         </div>
                         <div style="text-align: left;">
-                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--doing-green);">위험성평가 결과 조회</div>
-                            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">기본에 제출된 데이터를 조회/출력합니다.</div>
+                            <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-success);">위험성평가 결과 조회</div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px; font-weight: 600;">기존에 제출된 데이터를 조회/출력합니다.</div>
                         </div>
                     </button>
                 </div>
 
                 <div style="margin-top: 2rem;">
-                    <button class="btn" onclick="goHome()" style="width: 100%; height: 56px; background: #f1f5f9; color: #475569; border: none; border-radius: 18px; font-weight: 800; cursor: pointer;">취소 및 홈으로</button>
+                    <button class="btn btn-secondary" onclick="goHome()">이전단계</button>
                 </div>
             </section>
 
-            <!-- Phase Results: Results Inquiry -->
-            <section id="step-results" class="phase">
-                <div class="section-header">
-                    <h2>위험성평가 결과 조회</h2>
-                    <div id="result-search-form" class="worker-input-card" style="padding: 1.25rem; margin-top: 1rem; border-radius: 20px;">
-                        <div class="form-group" style="margin-bottom: 0.75rem;">
-                            <label class="ui-label" style="font-size: 0.85rem; color: #64748b; font-weight: 700;">조회 부서</label>
-                            <select id="result-dept-select" class="ui-input" onchange="updateResultTasks()">
-                                <option value="">부서를 선택하세요</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="ui-label" style="font-size: 0.85rem; color: #64748b; font-weight: 700;">조회 작업명</label>
-                            <select id="result-task-select" class="ui-input" onchange="showResultDetail()">
-                                <option value="">작업을 선택하세요</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 상세 리포트 뷰어 영역 -->
-                <div id="result-detail-viewer" style="display: none; margin-top: 1.5rem;">
-                    <div class="btn-group" style="margin-bottom: 1.5rem; display: flex; gap: 8px;">
-                        <button class="btn btn-primary" onclick="exportResultToPDF()" style="flex: 1; height: 48px; border-radius: 14px; background: #e11d48; border: none; color: white; font-weight: 700; cursor: pointer;">
-                            <i data-lucide="download" style="width:18px;"></i> PDF 다운로드
-                        </button>
-                        <button class="btn" onclick="resetResultsView()" style="flex: 0.4; height: 48px; border-radius: 14px; background: #f1f5f9; color: #475569; border: none; font-weight: 700; cursor: pointer;">다시 선택</button>
-                    </div>
-                    
-                    <div id="pdf-content-area" style="background: white; padding: 2.5rem 1.75rem; border-radius: 24px; border: 1px solid #e2e8f0; min-height: 400px; box-shadow: var(--shadow-sm);">
-                        <!-- JS dynamic -->
-                    </div>
-                </div>
-
-                <div id="results-empty-state" style="padding: 4rem 1.5rem; text-align: center; color: #94a3b8;">
-                    <i data-lucide="database" style="width:48px; height:48px; margin-bottom:1rem; opacity: 0.2;"></i>
-                    <p style="font-size: 0.9rem;">조회할 부서와 작업을 선택해 주세요.</p>
-                </div>
-
-                <div style="margin-top: 2rem;">
-                    <button class="btn" onclick="switchPhase('step-choice')" style="width: 100%; height: 56px; background: #f1f5f9; color: #475569; border-radius: 18px; font-weight: 800; border: none; cursor: pointer;">이전으로 돌아가기</button>
-                </div>
-            </section>
 
 
             <!-- Phase 1: User & Task Selection -->
@@ -223,8 +203,8 @@
                 <div class="worker-input-card" style="padding:1.5rem 0 !important; margin-bottom:1rem !important;">
                     <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">평가자 성명 (다중 선택 가능)</label>
                     <div class="form-group dropdown-container" style="margin-bottom:0.75rem; display: flex; gap: 8px;">
-                        <input type="text" id="worker-input" class="ui-input" style="height:48px; flex: 1;" placeholder="평가자 성명 입력" autocomplete="off">
-                        <button type="button" id="add-worker-btn" class="btn btn-primary" style="height:48px; width: 80px; padding: 0; font-size: 0.9rem; flex-shrink: 0; border-radius: 12px; background: var(--doing-indigo); color: white; border: none; font-weight: 700; cursor: pointer;">+ 추가</button>
+                        <input type="text" id="worker-input" class="ui-input" style="height:52px; flex: 1;" placeholder="평가자 성명 입력" autocomplete="off">
+                        <button type="button" id="add-worker-btn" class="btn btn-add">+ 추가</button>
                         <div id="worker-dropdown" class="custom-dropdown"></div>
                     </div>
                     <!-- 선택된 평가자 칩 리스트 -->
@@ -236,7 +216,7 @@
                 </div>
 
                 <div class="btn-container adaptive" id="step1-home-btn" style="margin-top: 2rem;">
-                    <button class="btn btn-secondary" onclick="goHome()">취소 및 홈으로</button>
+                    <button class="btn btn-secondary" onclick="switchPhase('choice-selection')">이전단계</button>
                 </div>
             </section>
 
@@ -279,33 +259,106 @@
                     <p>아래 점검 결과를 최종 확인한 후 본인 서명을 완료해 주세요.</p>
                 </div>
                 
-                <!-- [NEW] 제출 전 점검 결과 미리보기 영역 -->
-                <div id="preview-results-area" style="margin-bottom: 2rem;"></div>
+                <!-- [PREMIUM] 제출 전 점검 결과 미리보기 및 서명 섹션 -->
+                <div class="section-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-weight: 800; color: var(--doing-indigo); padding-left: 5px;">
+                    <i data-lucide="award" style="width:20px; height:20px;"></i> 최종 점검 결과 미리보기 (Preview)
+                </div>
 
-                <div class="signature-container" style="background: white; border-radius: 20px; padding: 1rem; border: 1px solid #f1f5f9; margin-bottom: 1.5rem;">
-                    <canvas id="signature-pad" style="width: 100%; height: 200px; background: #fafafa; border-radius: 12px;"></canvas>
-                    <div style="text-align: right; margin-top: 10px;">
-                        <button class="btn btn-secondary btn-sm" id="clear-signature" style="padding: 4px 12px; font-size: 0.8rem;">서명 지우기</button>
+                <div id="preview-results-area" style="margin-bottom: 2.5rem; background: #fff; border-radius: 24px; border: 1.5px solid #f1f5f9; box-shadow: var(--shadow-sm); min-height: 100px; position: relative;">
+                    <!-- [JS] 점검 내역 미리보기가 여기에 렌더링됨 -->
+                    <div style="padding:60px; text-align:center; color:#94a3b8; font-weight: 700;">
+                        <span class="loader-spinner" style="display:inline-block; animation: spin 2s linear infinite;">🔄</span>
+                        <div style="margin-top:10px;">리포트를 생성 중입니다...</div>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-top: 1rem;">
+                <div class="certification-card" style="background: white; border-radius: 28px; padding: 1.75rem; border: 1.5px solid #f1f5f9; box-shadow: var(--shadow-lg); margin-bottom: 2rem; border-top: 6px solid var(--doing-indigo);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                        <span style="font-size: 0.95rem; font-weight: 900; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="pen-tool" style="width:20px; color: var(--doing-indigo);"></i> 점검자 본인 확인 서명
+                        </span>
+                        <button class="btn btn-secondary btn-sm" id="clear-signature" 
+                                style="padding: 6px 14px; font-size: 0.75rem; border-radius: 12px; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; font-weight: 800; transition: 0.3s; cursor: pointer;">
+                            서명 지우기
+                        </button>
+                    </div>
+
+                    <div style="background: #fafafa; border: 2.5px dashed #e2e8f0; border-radius: 20px; position: relative; height: 260px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                        <canvas id="signature-pad" style="width: 100%; height: 100%; touch-action: none; cursor: url('https://cdn-icons-png.flaticon.com/512/0/80.png') 0 32, crosshair;"></canvas>
+                        <div id="sig-placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #cbd5e1; font-size: 1rem; pointer-events: none; font-weight: 800; letter-spacing: 1px; opacity: 0.6;">
+                            이곳에 정자로 서명해 주세요
+                        </div>
+                    </div>
+                    
+                    <div style="background: #fdfdfd; border-radius: 16px; padding: 1rem; margin-top: 1.25rem; border: 1px solid #f1f5f9;">
+                        <p style="font-size: 0.8rem; color: #64748b; margin: 0; text-align: center; font-weight: 600; line-height: 1.6;">
+                            "위 본인은 한국중부발전(주)의 스마트 안전 규정을 준수하며,<br>
+                            현장의 위험 요인 및 개선 대책 수립을 성실히 수행하였음을 확인합니다."
+                        </p>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-top: 1.5rem;">
                     <button class="btn" onclick="switchPhase('step-improvement')" 
-                            style="background: #f1f5f9; color: #475569; height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <i data-lucide="arrow-left" style="width:18px;"></i> 이전
+                            style="background: #f1f5f9; color: #475569; height: 64px; border-radius: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <i data-lucide="arrow-left" style="width:20px;"></i> 이전단계
                     </button>
                     <button class="btn btn-primary" id="submit-btn" onclick="submitLog()" 
-                            style="background: var(--doing-blue); height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        최종 결과 제출 <i data-lucide="send" style="width:18px;"></i>
+                            style="background: linear-gradient(135deg, var(--doing-blue) 0%, var(--doing-indigo) 100%); height: 64px; border-radius: 20px; font-weight: 900; font-size: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 12px; box-shadow: var(--shadow-md); border: none;">
+                        점검표 최종 제출 <i data-lucide="send-to-back" style="width:22px;"></i>
                     </button>
+                </div>
+            </section>
+
+            <!-- Phase: Result Inquiry (New Premium Card Flow) -->
+            <section id="step-results" class="phase">
+                <div class="section-header">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h2>위험성평가 결과 조회</h2>
+                        <div id="result-badge-count" class="hi-badge" style="display:none;">0건</div>
+                    </div>
+                    <p id="result-status-text" style="font-size:0.85rem; color:#64748b; font-weight:600; margin-top:4px;">최근 점검 기록을 부서별/작업별로 조회합니다.</p>
+                </div>
+                
+                <!-- Breadcrumb for Results Navigation -->
+                <nav id="result-breadcrumb" style="display:none; margin-bottom:15px; background:#f8fafc; padding:10px 15px; border-radius:12px; border:1px solid #f1f5f9; font-size:0.85rem; font-weight:800; color:var(--doing-blue);">
+                    <span id="breadcrumb-home" onclick="openResultsView()" style="cursor:pointer;">조회 홈</span>
+                    <span id="breadcrumb-dept" style="display:none;"> > </span>
+                </nav>
+
+                <div id="result-selection-container" class="selection-banner-list">
+                    <!-- Cards will be injected here (Dept -> Task -> Report) -->
+                </div>
+
+                <div id="result-detail-viewer" style="display:none;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1.5rem;">
+                        <button class="btn btn-primary" onclick="exportResultToPDF()" style="background:#e11d48; box-shadow:0 8px 15px rgba(225, 29, 72, 0.2); height:50px;">
+                            <i data-lucide="download"></i> PDF
+                        </button>
+                        <button class="btn btn-secondary" id="back-to-list-btn" style="margin-top:0; height:50px;">
+                            <i data-lucide="list"></i> 목록으로
+                        </button>
+                    </div>
+                    <div id="pdf-content-area" style="background:white; border-radius:24px; padding:20px; border:1.8px solid #e2e8f0; min-height:400px; box-shadow:var(--shadow-lg);">
+                        <!-- Detailed Card Report will be injected here -->
+                    </div>
+                </div>
+
+                <div id="results-empty-state" style="display:none; padding:60px 20px; text-align:center; color:#94a3b8; background:white; border-radius:24px; border:1.5px dashed #e2e8f0; margin-top:20px;">
+                    <i data-lucide="search-x" style="width:40px; height:40px; margin-bottom:12px;"></i>
+                    <p style="font-weight:700;">해당 부서의 점검 기록이 없습니다.</p>
+                </div>
+
+                <div class="btn-container" style="margin-top:25px;">
+                    <button class="btn btn-secondary" onclick="goHome()">메인 화면으로</button>
                 </div>
             </section>
 
             <!-- Phase: Submission History -->
             <section id="step-history" class="phase">
                 <div class="section-header">
-                    <h2>제출 내역 확인</h2>
-                    <p>최근 기기에서 제출된 점검 리스트입니다.</p>
+                    <h2 id="history-title">제출 내역 확인</h2>
+                    <p id="history-subtitle">최근 기기에서 제출된 점검 리스트입니다.</p>
                 </div>
                 
                 <div id="history-list-container" class="history-list-area">

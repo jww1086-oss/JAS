@@ -1,3 +1,4 @@
+function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
@@ -26,7 +27,7 @@ const currentState = {
     allLogs: [] 
 };
 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx3tKBcLnelqMbBMQOWWsBVnLrq5ZmEwdZ1zvTNKSsjjLvM75Tk-LyDQ-H2Io3alUhyTg/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxpLWSsnkWsRz8dLrnAHAhNm9VSYy8-sqZ3uXBFua5xoOQBrYqs0kvh25WsaO9zdQKHdg/exec";
 // [NEW] 실시간 네트워크 상태 업데이트 함수 (v25.1)
 function updateNetworkStatus(isOnline, message = "") {
     const indicator = document.getElementById('network-status');
@@ -192,22 +193,32 @@ function getHash(str) {
 }
 
 function fetchJSONP(url) {
-    updateNetworkStatus(false, '통신 중...');
+    // [v26.2] 불필요한 '통신 대기' 텍스트 제거 (사용자 요청 반영)
+    const indicator = document.getElementById('network-status');
+    if (indicator && !indicator.classList.contains('online')) {
+        updateNetworkStatus(false, '실시간 연결 중');
+    }
+    
     return new Promise((resolve, reject) => {
         const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
         const script = document.createElement('script');
         
+        // 타임아웃을 20초로 확장하여 안정성 확보 (v25.7.1)
         const timeout = setTimeout(() => {
             delete window[callbackName];
-            document.body.removeChild(script);
-            updateNetworkStatus(false, '연결 지연');
+            if (script.parentNode) document.body.removeChild(script);
+            // [v26.1] 이미 성공한 적이 있다면 지연 메시지로 불안감을 주지 않음
+            if (indicator && !indicator.classList.contains('online')) {
+                updateNetworkStatus(false, '연결 지연');
+            }
             reject(new Error('네트워크 응답 시간 초과'));
-        }, 12000); 
+        }, 20000); 
 
         window[callbackName] = (data) => {
             clearTimeout(timeout);
             delete window[callbackName];
-            document.body.removeChild(script);
+            if (script.parentNode) document.body.removeChild(script);
+            // [STICKY] 일단 한번이라도 성공하면 '실시간 ON'을 강력 유지
             updateNetworkStatus(true, '실시간 ON'); 
             resolve(data);
         };
@@ -215,8 +226,13 @@ function fetchJSONP(url) {
         script.onerror = () => {
             clearTimeout(timeout);
             delete window[callbackName];
-            document.body.removeChild(script);
-            updateNetworkStatus(false, '연결 오류');
+            if (script.parentNode) document.body.removeChild(script);
+            // 일시적 소음은 무시하고, 상점 상태가 아닐때만 표시
+            if (indicator && !indicator.classList.contains('online')) {
+                updateNetworkStatus(false, '접속 지연');
+            } else {
+                console.warn("[v26.1] 일시적 통신 피드백 무시 (ON 유지)");
+            }
             reject(new Error('JSONP fetch failed'));
         };
 
@@ -257,10 +273,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('signature-pad');
     if (canvas) {
         signaturePad = new SignaturePad(canvas, {
-            backgroundColor: 'rgb(255, 255, 255)',
-            penColor: 'rgb(0, 0, 0)'
+            backgroundColor: 'rgba(255, 255, 255, 0)',
+            penColor: 'rgb(0, 0, 0)',
+            onBegin: () => {
+                const placeholder = document.getElementById('sig-placeholder');
+                if (placeholder) placeholder.style.display = 'none';
+            }
         });
     }
+
+    document.getElementById('clear-signature')?.addEventListener('click', () => {
+        if (signaturePad) {
+            signaturePad.clear();
+            const placeholder = document.getElementById('sig-placeholder');
+            if (placeholder) placeholder.style.display = 'block';
+        }
+    });
 });
 
 
@@ -429,15 +457,25 @@ function renderTaskBanners(dept) {
     const container = document.getElementById('selection-container');
     if (!container) return;
     
-    // 해당 부서의 작업 목록 추출
     const tasks = [...new Set(currentState.risks.filter(r => r.부서명 === dept).map(r => r.작업명))];
     
+    // 최고의 퀄리티를 위한 지능형 아이콘 매핑 함수
+    const getTaskIcon = (task) => {
+        if (task.includes('전기') || task.includes('전력') || task.includes('계전기') || task.includes('VCB')) return 'zap';
+        if (task.includes('점검') || task.includes('시험') || task.includes('측정')) return 'activity';
+        if (task.includes('작업') || task.includes('보수') || task.includes('정비')) return 'hammer';
+        if (task.includes('해체') || task.includes('철거')) return 'trash-2';
+        if (task.includes('설치') || task.includes('조립')) return 'package-plus';
+        if (task.includes('화재') || task.includes('소방')) return 'flame';
+        return 'clipboard-list';
+    };
+
     container.innerHTML = tasks.map(task => `
         <div class="task-banner-card" onclick="selectAssessmentTask('${task}')">
-            <div class="tbc-icon"><i data-lucide="activity"></i></div>
+            <div class="tbc-icon"><i data-lucide="${getTaskIcon(task)}"></i></div>
             <div class="tbc-text">
                 <div class="title">${task}</div>
-                <div class="desc">현재 작업명</div>
+                <div class="desc-tag">현재 작업 프로세스</div>
             </div>
             <i data-lucide="chevron-right" class="tbc-arrow"></i>
         </div>
@@ -667,32 +705,36 @@ function preparePreviewData() {
     const workerName = document.getElementById('worker-input')?.value || currentState.selectedWorker || "미지정";
     
     // 1. 표준 위험요인 처리
+    const taskHash = getHash(currentState.selectedTask || "");
+    
     currentState.risks.forEach(risk => {
-        const hash = getHash(risk.위험요인);
+        const hazardHash = getHash(risk.위험요인);
         const stepName = risk.작업단계;
-        const key = `${stepName}-${hash}`;
+        const stepHash = getHash(stepName);
+        const key = `${taskHash}-${stepHash}-${hazardHash}`;
         
         if (currentState.checkedItems.has(key) || currentState.riskMatrixData[key]) {
             const riskData = currentState.riskMatrixData[key] || { current: { score: 1 }, residual: { score: 1 } };
             
+            // 점검표 렌더링 로직과 동일하게 줄바꿈 분리
+            const standardMeasures = Array.isArray(risk.개선대책) ? risk.개선대책 : (risk.개선대책 ? risk.개선대책.split('\n') : []);
+            
             const currentMeasures = [];
-            (risk.개선대책 || []).forEach((m, idx) => {
+            standardMeasures.forEach((m, idx) => {
                 if (currentState.checkedMeasures.has(`${key}-m-${idx}`)) {
-                    currentMeasures.push(`[이행] ${m}`);
+                    currentMeasures.push(`[이행] ${m.trim()}`);
                 }
             });
-            const manualCurrent = (currentState.manualHazardItems[key]?.current || []).filter((_, idx) => currentState.checkedMeasures.has(`${key}-mc-${idx}`));
-            currentMeasures.push(...manualCurrent);
+            
             if (currentState.manualNotes[key]?.current) currentMeasures.push(`(추가의견) ${currentState.manualNotes[key].current}`);
 
             const improveMeasures = [];
-            (risk.개선대책 || []).forEach((m, idx) => {
-                if (currentState.improvedMeasures.has(`${key}-mi-${idx}`)) {
-                    improveMeasures.push(`[개선] ${m}`);
+            standardMeasures.forEach((m, idx) => {
+                if (currentState.improvedMeasures.has(`${key}-m-${idx}`)) {
+                    improveMeasures.push(`[개선] ${m.trim()}`);
                 }
             });
-            const manualImprove = (currentState.manualHazardItems[key]?.improve || []).filter((_, idx) => currentState.improvedMeasures.has(`${key}-mi-${idx}`));
-            improveMeasures.push(...manualImprove);
+            
             if (currentState.manualNotes[key]?.improvement) improveMeasures.push(`(추가의견) ${currentState.manualNotes[key].improvement}`);
 
             logs.push({
@@ -701,11 +743,14 @@ function preparePreviewData() {
                 점검자: workerName,
                 작업단계: stepName,
                 위험요인: risk.위험요인,
-                현재안전조치: currentMeasures.join('\n') || "이상 없음 (양호)",
-                개선대책: improveMeasures.join('\n') || "추가 개선사항 없음",
+                현재안전조치: currentMeasures.length > 0 ? currentMeasures.join('\n') : "없음",
+                개선대책: improveMeasures.length > 0 ? improveMeasures.join('\n') : "없음",
+                현재_빈도: riskData.current.frequency,
+                현재_강도: riskData.current.severity,
                 현재_위험도: riskData.current.score,
-                잔류_위험도: riskData.residual.score,
-                종합개선의견: document.getElementById('overall-improvement')?.value || ""
+                잔류_빈도: riskData.residual.frequency,
+                잔류_강도: riskData.residual.severity,
+                잔류_위험도: riskData.residual.score
             });
         }
     });
@@ -1611,15 +1656,6 @@ function renderImprovementPhase() {
 
     // 하단 공통 입력창 및 내비게이션
     itemsHTML += `
-        <div class="manual-input-area" style="background:white; border-radius:20px; padding:1.25rem; border:1px solid #f1f5f9; margin-bottom: 1.5rem;">
-            <label class="ui-label" style="display:flex; align-items:center; gap:6px; font-weight: 900; font-size: 0.9rem;">
-                <i data-lucide="message-square" style="width:16px;"></i> 종합 개선 조치 의견
-            </label>
-            <textarea id="overall-improvement" class="manual-textarea" style="min-height:100px; margin-top:10px; font-size: 0.9rem;" 
-                      placeholder="현장 전체에 대한 종합적인 개선 의견을 입력하세요..." 
-                      oninput="currentState.overallImprovement = this.value">${currentState.overallImprovement || ""}</textarea>
-        </div>
-
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 2rem;">
             <button class="btn" onclick="switchPhase('step-2', true)" 
                     style="background: #f1f5f9; color: #475569; height: 56px; border-radius: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px;">
@@ -1971,22 +2007,23 @@ async function submitLog() {
         };
         
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
-        const currentMeasuresMaster = Array.isArray(r.현재안전조치) ? r.현재안전조치 : (r.현재안전조치 ? [r.현재안전조치] : []);
-        const improvementMeasuresMaster = Array.isArray(r.개선대책) ? r.개선대책 : (r.개선대책 ? [r.개선대책] : []);
         
-        const currentChecked = [...currentMeasuresMaster.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current]
-            .filter(v => v && v.trim()).join('\n');
+        // 점검표 렌더링 로직과 동일하게 줄바꿈 분리
+        const measures = Array.isArray(r.개선대책) ? r.개선대책 : (r.개선대책 ? r.개선대책.split('\n') : []);
+        
+        const currentChecked = [...measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current]
+            .filter(v => v && v.trim()).map(v => v.includes('[이행]') ? v : `[이행] ${v}`).join('\n');
             
-        const improvedList = [...improvementMeasuresMaster.filter((_, mi) => currentState.improvedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement]
-            .filter(v => v && v.trim()).join('\n');
+        const improvedList = [...measures.filter((_, mi) => currentState.improvedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement]
+            .filter(v => v && v.trim()).map(v => v.includes('[개선]') ? v : `[개선] ${v}`).join('\n');
             
         return {
             department: currentState.selectedDept,
             task_name: currentState.selectedTask,
             step_name: r.작업단계 || currentState.selectedStep,
             hazard: r.위험요인,
-            current_measures: currentChecked || currentMeasuresMaster.filter(v => v).join('\n'),
-            improvements_checked: improvedList || "",
+            current_measures: currentChecked || "없음",
+            improvements_checked: improvedList || "없음",
             current_frequency: riskData.current.frequency,
             current_severity: riskData.current.severity,
             current_score: riskData.current.score,
@@ -2080,109 +2117,162 @@ function showToast(msg) {
 
 // --- 결과 조회 시스템 (카드형 UI 엔진) ---
 
+// --- 결과 조회 시스템 (카드형 UI 엔진 v25.4) ---
+
 async function openResultsView() {
     const overlay = document.getElementById('loading-overlay');
     if(overlay) {
-        overlay.querySelector('p').innerText = "최신 기록을 불러오는 중...";
+        const p = overlay.querySelector('p');
+        if (p) p.innerText = "최신 기록을 불러오는 중...";
         overlay.classList.add('active');
     }
     
     try {
         const response = await fetchJSONP(GAS_URL + "?type=logs");
-        const drafts = loadDrafts(); // 로컬 임시저장 데이터 로드
+        const drafts = typeof loadDrafts === 'function' ? loadDrafts() : []; 
         
         let allLogs = [];
         if (Array.isArray(response)) allLogs = [...response];
         
-        // 임시저장 데이터와 서버 데이터 통합
         currentState.allLogs = [...drafts, ...allLogs];
         
-        const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
-        const deptSelect = document.getElementById('result-dept-select');
-        if (deptSelect) {
-            deptSelect.innerHTML = '<option value="">부서를 선택하세요</option>' + 
-                depts.map(d => `<option value="${d}">${d}</option>`).join('');
-        }
         switchPhase('step-results');
-        resetResultsView();
+        renderResultDeptCards();
     } catch (error) {
+        console.error("Result Load Error:", error);
         showToast("⚠️ 데이터 로드 실패. 네트워크 상태를 확인하세요.");
     } finally {
         if(overlay) overlay.classList.remove('active');
     }
 }
 
-function resetResultsView() {
-    document.getElementById('result-search-form').style.display = 'block';
-    document.getElementById('result-detail-viewer').style.display = 'none';
-    document.getElementById('results-empty-state').style.display = 'block';
-    const taskSelect = document.getElementById('result-task-select');
-    if (taskSelect) taskSelect.innerHTML = '<option value="">작업을 선택하세요</option>';
-    const deptSelect = document.getElementById('result-dept-select');
-    if (deptSelect) deptSelect.value = "";
+function renderResultDeptCards() {
+    const container = document.getElementById('result-selection-container');
+    const breadcrumb = document.getElementById('result-breadcrumb');
+    const detailViewer = document.getElementById('result-detail-viewer');
+    const emptyState = document.getElementById('results-empty-state');
+    const statusText = document.getElementById('result-status-text');
+
+    if (!container) return;
+
+    // Reset View
+    container.style.display = 'grid';
+    if(breadcrumb) breadcrumb.style.display = 'none';
+    if(detailViewer) detailViewer.style.display = 'none';
+    if(emptyState) emptyState.style.display = 'none';
+    if(statusText) statusText.innerText = "최근 점검 기록을 부서별로 조회합니다.";
+
+    const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
+
+    if (depts.length === 0) {
+        container.innerHTML = '<div style="grid-column:1/-1; padding:40px; text-align:center; color:#94a3b8;">조회 가능한 기록이 없습니다.</div>';
+        return;
+    }
+
+    container.innerHTML = depts.map(dept => `
+        <div class="dept-banner-card" onclick="selectResultDept('${dept}')">
+            <div class="dbc-icon" style="background:#eff6ff; color:#3b82f6;"><i data-lucide="building-2"></i></div>
+            <div class="dbc-text">
+                <div class="title">${dept}</div>
+                <div class="desc">점검 기록 존재</div>
+            </div>
+            <i data-lucide="chevron-right" class="dbc-arrow" style="color:#cbd5e1;"></i>
+        </div>
+    `).join('');
+
+    if (window.lucide) window.lucide.createIcons();
 }
 
-function updateResultTasks() {
-    const selectedDept = document.getElementById('result-dept-select').value;
-    const taskSelect = document.getElementById('result-task-select');
-    if (!selectedDept || !taskSelect) return;
-    
-    const taskOptions = currentState.allLogs
-        .filter(log => (log.부서명 || log.소속) === selectedDept)
-        .map(log => ({
-            name: log.작업명 || "제목 없음",
-            date: log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상",
-            isDraft: log.isDraft || false,
-            draftKey: log.draftKey || ""
-        }));
+function selectResultDept(dept) {
+    currentState.currentResultDept = dept;
+    const container = document.getElementById('result-selection-container');
+    const breadcrumb = document.getElementById('result-breadcrumb');
+    const bDept = document.getElementById('breadcrumb-dept');
+    const statusText = document.getElementById('result-status-text');
 
-    const uniqueTasks = [];
-    const seen = new Set();
-    taskOptions.forEach(t => {
-        const key = t.isDraft ? t.draftKey : `${t.name}-${t.date}`;
-        if (!seen.has(key)) {
-            seen.add(key);
-            uniqueTasks.push(t);
-        }
+    if(breadcrumb) breadcrumb.style.display = 'flex';
+    if(bDept) {
+        bDept.style.display = 'inline';
+        bDept.innerText = ` > ${dept}`;
+    }
+    if(statusText) statusText.innerText = `[${dept}] 부서의 점검 리스트입니다.`;
+
+    const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept);
+    
+    // 이 부서의 작업들을 그룹화 (날짜 + 작업명 + 점검자 기준)
+    const taskGroups = {};
+    filteredLogs.forEach(log => {
+        const date = log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상";
+        const worker = log.점검자 || log.평가자 || "미지정";
+        const key = `${date}|${log.작업명 || "내용 없음"}|${worker}`;
+        if (!taskGroups[key]) taskGroups[key] = [];
+        taskGroups[key].push(log);
     });
-    
-    taskSelect.innerHTML = '<option value="">작업을 선택하세요</option>' + 
-        uniqueTasks.map(t => {
-            const label = t.isDraft ? `[작성 중] ${t.name} (${t.date})` : `${t.date} | ${t.name}`;
-            const val = t.isDraft ? `DRAFT|${t.draftKey}` : t.name;
-            return `<option value="${val}">${label}</option>`;
-        }).join('');
+
+    if (Object.keys(taskGroups).length === 0) {
+        container.innerHTML = '<div style="grid-column:1/-1; padding:40px; text-align:center; color:#94a3b8;">작업 기록이 없습니다.</div>';
+        return;
+    }
+
+    container.innerHTML = Object.keys(taskGroups).map(key => {
+        const [date, task, worker] = key.split('|');
+        const logs = taskGroups[key];
+        const isDraft = logs.some(l => l.isDraft);
+        const safeKey = key.replace(/'/g, "\\'");
+        
+        return `
+            <div class="history-item" onclick="showResultDetailByGroup('${safeKey}')">
+                <div class="hi-header">
+                    <div class="hi-badge" style="${isDraft ? 'background:#fff1f2; color:#e11d48;' : ''}">${isDraft ? "작성 중" : "제출 완료"}</div>
+                    <div style="font-size:0.75rem; color:#94a3b8; font-weight:700;">${date}</div>
+                </div>
+                <div class="hi-title">${task}</div>
+                <div class="hi-footer">
+                    <i data-lucide="user" style="width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i>
+                    <span>점검자: ${worker}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (window.lucide) window.lucide.createIcons();
+    window.scrollTo(0, 0);
 }
 
-function showResultDetail() {
-    const dept = document.getElementById('result-dept-select').value;
-    const selectedVal = document.getElementById('result-task-select').value;
-    if (!dept || !selectedVal) {
-        showToast("⚠️ 부서와 작업을 선택하세요.");
-        return;
-    }
+function showResultDetailByGroup(groupKey) {
+    const [date, task, worker] = groupKey.split('|');
+    const filtered = currentState.allLogs.filter(log => {
+        const logDate = log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상";
+        const logWorker = log.점검자 || log.평가자 || "미지정";
+        return (log.부서명 || log.소속) === currentState.currentResultDept && 
+               log.작업명 === task && 
+               logWorker === worker &&
+               logDate === date;
+    });
 
-    // 임시 저장 항목 선택 시 이어가기 실행
-    if (selectedVal.startsWith('DRAFT|')) {
-        const draftKey = selectedVal.split('|')[1];
-        resumeDraft(draftKey);
-        return;
-    }
-
-    const task = selectedVal;
-
-    const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept && log.작업명 === task);
-    if (filteredLogs.length === 0) {
+    if (filtered.length === 0) {
         showToast("❌ 데이터를 찾을 수 없습니다.");
         return;
     }
 
-    document.getElementById('result-search-form').style.display = 'none';
+    document.getElementById('result-selection-container').style.display = 'none';
     document.getElementById('result-detail-viewer').style.display = 'block';
-    document.getElementById('results-empty-state').style.display = 'none';
-    
-    renderDetailedCardReport(filteredLogs, 'pdf-content-area', false);
+    document.getElementById('result-status-text').innerText = "상세 점검 보고서";
+
+    // "목록으로" 버튼 기능 연결
+    const backBtn = document.getElementById('back-to-list-btn');
+    if (backBtn) {
+        backBtn.onclick = () => {
+            document.getElementById('result-selection-container').style.display = 'grid';
+            document.getElementById('result-detail-viewer').style.display = 'none';
+            document.getElementById('result-status-text').innerText = `[${currentState.currentResultDept}] 부서의 점검 리스트입니다.`;
+        };
+    }
+
+    renderDetailedCardReport(filtered, 'pdf-content-area', false);
+    window.scrollTo(0, 0);
 }
+
 
 
 
@@ -2255,22 +2345,40 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                                     <span style="color: var(--doing-blue);">항목 ${lIdx + 1}.</span> ${l.위험요인 || "내용 없음"}
                                 </div>
                                 
-                                <div style="padding: 15px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                    <div style="border-right: 1px dashed #e2e8f0; padding-right: 15px;">
-                                        <div style="font-weight: 800; color: #64748b; font-size: 0.75rem; margin-bottom: 6px;">현재 안전조치</div>
-                                        <div style="font-size: 0.85rem; color: #1e293b; line-height: 1.5; white-space: pre-line;">${l.현재안전조치 || "기본 조치 준수"}</div>
-                                        <div style="margin-top: 10px; text-align: right;">
-                                            <span style="font-size: 0.7rem; color: #94a3b8; font-weight: 700; margin-right: 4px;">위험도:</span>
-                                            ${getReportScoreBadge(curScore)}
+                                <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+                                    <!-- Row 1: 현재 안전조치 및 위험도 -->
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1px dashed #f1f5f9; padding-bottom: 12px;">
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 800; color: #64748b; font-size: 0.75rem; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                                                <i data-lucide="shield-check" style="width:12px;"></i> 현재 안전조치
+                                            </div>
+                                            <div style="font-size: 0.88rem; color: #1e293b; line-height: 1.5; white-space: pre-line; font-weight: 600;">${l.현재안전조치 || "없음"}</div>
+                                        </div>
+                                        <div style="text-align: right; min-width: 120px;">
+                                            <div style="font-weight: 800; color: #94a3b8; font-size: 0.65rem; margin-bottom: 6px;">빈도/강도/위험도</div>
+                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">빈도 ${l.현재_빈도 || 1}</span>
+                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">강도 ${l.현재_강도 || 1}</span>
+                                                ${getReportScoreBadge(curScore)}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <div style="font-weight: 800; color: #059669; font-size: 0.75rem; margin-bottom: 6px;">추가 개선대책</div>
-                                        <div style="font-size: 0.85rem; color: #166534; line-height: 1.5; white-space: pre-line; background: #f0fdf4; padding: 6px; border-radius: 6px;">${l.개선대책 || "추가 조치 불필요"}</div>
-                                        <div style="margin-top: 10px; text-align: right;">
-                                            <span style="font-size: 0.7rem; color: #10b981; font-weight: 700; margin-right: 4px;">잔류 위험도:</span>
-                                            ${getReportScoreBadge(resScore)}
+                                    <!-- Row 2: 개선대책 및 잔류 위험도 -->
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+                                        <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 12px; border: 1px solid #dcfce7;">
+                                            <div style="font-weight: 800; color: #059669; font-size: 0.75rem; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                                                <i data-lucide="wrench" style="width:12px;"></i> 추가 개선대책
+                                            </div>
+                                            <div style="font-size: 0.88rem; color: #166534; line-height: 1.5; white-space: pre-line; font-weight: 700;">${l.개선대책 || "없음"}</div>
+                                        </div>
+                                        <div style="text-align: right; min-width: 120px; padding-top: 10px;">
+                                            <div style="font-weight: 800; color: #10b981; font-size: 0.65rem; margin-bottom: 6px;">빈도/강도/위험도</div>
+                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">빈도 ${l.잔류_빈도 || 1}</span>
+                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">강도 ${l.잔류_강도 || 1}</span>
+                                                ${getReportScoreBadge(resScore)}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2282,14 +2390,6 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
             `).join('')}
         </div>
 
-        <div style="margin-top: 40px; background: #f8fafc; border: 1.5px solid #e2e8f0; padding: 25px; border-radius: 20px;">
-            <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 1.1rem; font-weight: 900; display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="message-square" style="width:20px; color:var(--doing-blue);"></i> 종합 개선 조치 의견
-            </h4>
-            <div style="font-size: 0.95rem; color: #475569; line-height: 1.7; white-space: pre-line; background: white; padding: 20px; border-radius: 12px; border: 1px solid #f1f5f9;">
-                ${first.종합개선의견 || "특이사항 없음"}
-            </div>
-        </div>
 
         <div style="margin-top: 50px; text-align: center; border-top: 2px solid #f1f5f9; padding-top: 30px;">
             <div style="font-weight: 900; font-size: 1.5rem; color: #1e293b; letter-spacing: 5px; margin-bottom: 5px;">한국중부발전(주)</div>
@@ -2302,27 +2402,75 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
 }
 
 function exportResultToPDF() {
-    const element = document.getElementById('pdf-content-area');
-    let taskName = "위험성평가_보고서";
+    // 1. 현재 화면에서 실제 리포트 내용이 담긴 영역 지능형 감지 (v26.0 마스터)
+    let element = document.getElementById('pdf-content-area');
+    if (!element || element.offsetHeight < 50) {
+        element = document.getElementById('preview-results-area');
+    }
     
-    // 시트 조회 화면인 경우
-    const selectTask = document.getElementById('result-task-select')?.value;
-    if (selectTask) taskName = selectTask;
-    // 미리보기 또는 로컬 히스토리인 경우
-    else if (currentState.selectedTask) taskName = currentState.selectedTask;
+    if (!element || element.offsetHeight < 50) {
+        showToast("❌ 캡처할 리포트 내용을 찾을 수 없습니다.");
+        return;
+    }
+
+    // 2. 파일명 정규화
+    const dept = (currentState.selectedDept || "DEP").trim();
+    const task = (currentState.selectedTask || "TASK").trim();
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    const safeName = `KOMIPO_${dateStr}_${dept}_${task}`.replace(/[<>:"/\\|?* \.()]/g, '_');
+    const finalFileName = `${safeName}.pdf`;
 
     const opt = {
         margin: 10,
-        filename: `${taskName.replace(/ /g, '_')}.pdf`,
+        filename: finalFileName,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 1.5, useCORS: true, letterRendering: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    showToast("📄 PDF 보고서를 생성 중입니다...");
-    html2pdf().set(opt).from(element).save().then(() => {
-        showToast("✅ PDF 다운로드가 완료되었습니다.");
-    });
+    // [v26.0] 절대 실패 없는 2중 방어선 (Dual Defense)
+    showToast("📄 [v26.0] 보고서를 최적화 중입니다. 다운로드가 안 되면 자동으로 인쇄창으로 전환됩니다.");
+
+    let printTriggered = false;
+    const printFallback = () => {
+        if (!printTriggered) {
+            printTriggered = true;
+            showToast("🖨️ 가장 확실한 [인쇄 -> PDF로 저장] 모드를 가동합니다.");
+            setTimeout(() => {
+                window.print(); // v26.0 핵심 백업 (CSS @media print 연동)
+            }, 1000);
+        }
+    };
+
+    // 3초 후에도 반응이 없으면 인쇄 모드 자동 제안
+    const printTimer = setTimeout(printFallback, 5000);
+
+    try {
+        // [1단계 시도] 기존 스크립트 방식 (성공 시 타이머 취소)
+        html2pdf().set(opt).from(element).output('blob').then((pdfBlob) => {
+            clearTimeout(printTimer);
+            const secureBlob = new Blob([pdfBlob], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(secureBlob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = finalFileName;
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                if (document.body.contains(a)) document.body.removeChild(a);
+                showToast("✅ PDF 파일이 안전하게 생성되었습니다!");
+            }, 500);
+        }).catch(err => {
+            console.error("PDF Engine Error:", err);
+            printFallback(); // 엔진 오류 시 2단계로 즉각 전환
+        });
+    } catch (e) {
+        printFallback(); // 시스템 에러 시 2단계로 즉각 전환
+    }
 }
 
 
