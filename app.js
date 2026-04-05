@@ -2191,7 +2191,7 @@ function renderResultDeptCards() {
     if(breadcrumb) breadcrumb.style.display = 'none';
     if(detailViewer) detailViewer.style.display = 'none';
     if(emptyState) emptyState.style.display = 'none';
-    if(statusText) statusText.innerText = "최근 점검 기록을 부서별로 조회합니다.";
+    if(statusText) statusText.innerText = "최근 TBM 기록을 부서별로 조회합니다.";
 
     const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
 
@@ -2226,7 +2226,7 @@ function selectResultDept(dept) {
         bDept.style.display = 'inline';
         bDept.innerText = ` > ${dept}`;
     }
-    if(statusText) statusText.innerText = `[${dept}] 부서의 점검 리스트입니다.`;
+    if(statusText) statusText.innerText = `[${dept}] 부서의 TBM 리스트입니다.`;
 
     const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept);
     
@@ -2288,7 +2288,7 @@ function showResultDetailByGroup(groupKey) {
 
     document.getElementById('result-selection-container').style.display = 'none';
     document.getElementById('result-detail-viewer').style.display = 'block';
-    document.getElementById('result-status-text').innerText = "상세 점검 보고서";
+    document.getElementById('result-status-text').innerText = "TBM 상세 보고서";
 
     // "목록으로" 버튼 기능 연결
     const backBtn = document.getElementById('back-to-list-btn');
@@ -2296,7 +2296,7 @@ function showResultDetailByGroup(groupKey) {
         backBtn.onclick = () => {
             document.getElementById('result-selection-container').style.display = 'grid';
             document.getElementById('result-detail-viewer').style.display = 'none';
-            document.getElementById('result-status-text').innerText = `[${currentState.currentResultDept}] 부서의 점검 리스트입니다.`;
+            document.getElementById('result-status-text').innerText = `[${currentState.currentResultDept}] 부서의 TBM 리스트입니다.`;
         };
     }
 
@@ -2343,7 +2343,7 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                 ${isPreview ? "PRE-SUBMISSION REVIEW" : "KOSHA SMART SAFETY RECORD"}
             </div>
             <h1 style="font-size: 1.8rem; color: #1e293b; margin: 0; font-weight: 900; letter-spacing: -1px;">
-                ${isPreview ? "위험성평가 결과 미리보기" : "위험성평가 결과 조회 보고서"}
+                ${isPreview ? "TBM 결과 미리보기" : "TBM 결과 보고서"}
             </h1>
             <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b; font-weight: 500;">
                 ${isPreview ? "제출 전 내용을 최종 확인해 주세요." : "본 보고서는 시스템을 통해 전송된 실시간 점검 기록입니다."}
