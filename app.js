@@ -2378,41 +2378,35 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                                     <span style="color: var(--doing-blue);">항목 ${lIdx + 1}.</span> ${l.위험요인 || "내용 없음"}
                                 </div>
                                 
-                                <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
-                                    <!-- Row 1: 현재 안전조치 및 위험도 -->
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1px dashed #f1f5f9; padding-bottom: 12px;">
-                                        <div style="flex: 1;">
-                                            <div style="font-weight: 800; color: #64748b; font-size: 0.75rem; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
-                                                <i data-lucide="shield-check" style="width:12px;"></i> 현재 안전조치
+                                <div style="padding: 18px; display: flex; flex-direction: column; gap: 15px;">
+                                    <!-- Section 1: 현재 안전조치 -->
+                                    <div style="border-bottom: 1px dashed #f1f5f9; padding-bottom: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                            <div style="font-weight: 850; color: #64748b; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;">
+                                                <i data-lucide="shield-check" style="width:14px;"></i> 현재 안전조치
                                             </div>
-                                            <div style="font-size: 0.88rem; color: #1e293b; line-height: 1.5; white-space: pre-line; font-weight: 600;">${l.현재안전조치 || "없음"}</div>
-                                        </div>
-                                        <div style="text-align: right; min-width: 85px;">
-                                            <div style="font-weight: 800; color: #94a3b8; font-size: 0.55rem; margin-bottom: 4px; letter-spacing: -0.5px;">빈/강/위</div>
-                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 3px;">
-                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">빈 ${l.현재_빈도 || 1}</span>
-                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">강 ${l.현재_강도 || 1}</span>
+                                            <div style="display: flex; align-items: center; gap: 4px;">
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:#f1f5f9; border-radius:6px; color:#475569; font-weight:800;">빈 ${l.현재_빈도 || 1}</span>
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:#f1f5f9; border-radius:6px; color:#475569; font-weight:800;">강 ${l.현재_강도 || 1}</span>
                                                 ${getReportScoreBadge(curScore)}
                                             </div>
                                         </div>
+                                        <div style="font-size: 0.92rem; color: #1e293b; line-height: 1.6; white-space: pre-line; font-weight: 600; padding-left: 2px;">${l.현재안전조치 || "없음"}</div>
                                     </div>
 
-                                    <!-- Row 2: 개선대책 및 잔류 위험도 -->
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
-                                        <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 12px; border: 1px solid #dcfce7;">
-                                            <div style="font-weight: 800; color: #059669; font-size: 0.75rem; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
-                                                <i data-lucide="wrench" style="width:12px;"></i> 추가 개선대책
+                                    <!-- Section 2: 개선대책 -->
+                                    <div style="background: #f0fdf4; padding: 14px; border-radius: 16px; border: 1.5px solid #dcfce7;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                            <div style="font-weight: 850; color: #059669; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;">
+                                                <i data-lucide="wrench" style="width:14px;"></i> 추가 개선대책
                                             </div>
-                                            <div style="font-size: 0.88rem; color: #166534; line-height: 1.5; white-space: pre-line; font-weight: 700;">${l.개선대책 || "없음"}</div>
-                                        </div>
-                                        <div style="text-align: right; min-width: 85px; padding-top: 10px;">
-                                            <div style="font-weight: 800; color: #10b981; font-size: 0.55rem; margin-bottom: 4px; letter-spacing: -0.5px;">빈/강/위</div>
-                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 3px;">
-                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">빈 ${l.잔류_빈도 || 1}</span>
-                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">강 ${l.잔류_강도 || 1}</span>
+                                            <div style="display: flex; align-items: center; gap: 4px;">
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:white; border-radius:6px; color:#059669; font-weight:800; border:1px solid #bbf7d0;">빈 ${l.잔류_빈도 || 1}</span>
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:white; border-radius:6px; color:#059669; font-weight:800; border:1px solid #bbf7d0;">강 ${l.잔류_강도 || 1}</span>
                                                 ${getReportScoreBadge(resScore)}
                                             </div>
                                         </div>
+                                        <div style="font-size: 0.92rem; color: #166534; line-height: 1.6; white-space: pre-line; font-weight: 700; padding-left: 2px;">${l.개선대책 || "없음"}</div>
                                     </div>
                                 </div>
                             </div>
