@@ -87,7 +87,7 @@
                         <div class="icon-box" style="background:#10b981;">
                             <i data-lucide="file-search"></i>
                         </div>
-                        <span>TBM</span>
+                        <span>점검 결과<br>조회</span>
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-purple">
@@ -137,7 +137,7 @@
             <!-- Phase 0: Choice (Conduct vs Results) -->
             <section id="step-choice" class="phase">
                 <div class="section-header">
-                    <h2>TBM (위험성평가)</h2>
+                    <h2>위험성평가</h2>
                     <p>수행하실 업무를 선택해 주세요.</p>
                 </div>
                 
@@ -147,7 +147,7 @@
                             <i data-lucide="edit-3"></i>
                         </div>
                         <div style="text-align: left;">
-                            <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-indigo);">TBM 실시</div>
+                            <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-indigo);">위험성평가 실시</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px; font-weight: 600;">새로운 안전 점검을 시작합니다.</div>
                         </div>
                     </button>
@@ -157,7 +157,7 @@
                             <i data-lucide="file-search"></i>
                         </div>
                         <div style="text-align: left;">
-                            <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-success);">TBM 결과 조회</div>
+                            <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-success);">위험성평가 결과 조회</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px; font-weight: 600;">기존에 제출된 데이터를 조회/출력합니다.</div>
                         </div>
                     </button>
@@ -291,10 +291,10 @@
             <section id="step-results" class="phase">
                 <div class="section-header">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h2>TBM 결과 조회</h2>
+                        <h2>위험성평가 결과 조회</h2>
                         <div id="result-badge-count" class="hi-badge" style="display:none;">0건</div>
                     </div>
-                    <p id="result-status-text" style="font-size:0.85rem; color:#64748b; font-weight:600; margin-top:4px;">최근 TBM 기록을 부서별/작업별로 조회합니다.</p>
+                    <p id="result-status-text" style="font-size:0.85rem; color:#64748b; font-weight:600; margin-top:4px;">최근 점검 기록을 부서별/작업별로 조회합니다.</p>
                 </div>
                 
                 <!-- Breadcrumb for Results Navigation -->
@@ -310,7 +310,7 @@
                 <div id="result-detail-viewer" style="display:none;">
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1.5rem;">
                         <button class="btn btn-primary" onclick="exportResultToPDF()" style="background:#e11d48; box-shadow:0 8px 15px rgba(225, 29, 72, 0.2); height:50px;">
-                            <i data-lucide="download"></i> PDF
+                            <i data-lucide="printer"></i> 인쇄(PDF)
                         </button>
                         <button class="btn btn-secondary" id="back-to-list-btn" style="margin-top:0; height:50px;">
                             <i data-lucide="list"></i> 목록으로
@@ -334,8 +334,8 @@
             <!-- Phase: Submission History -->
             <section id="step-history" class="phase">
                 <div class="section-header">
-                    <h2 id="history-title">TBM 제출 내역</h2>
-                    <p id="history-subtitle">최근 기기에서 제출된 TBM 리스트입니다.</p>
+                    <h2 id="history-title">위험성평가 제출 내역</h2>
+                    <p id="history-subtitle">최근 기기에서 제출된 점검 리스트입니다.</p>
                 </div>
                 
                 <div id="history-list-container" class="history-list-area">

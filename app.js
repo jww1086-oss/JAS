@@ -595,7 +595,7 @@ function renderHistoryList() {
 }
 
 function renderHistoryDepts(container, title, subtitle, history) {
-    title.innerText = "부서별 점검표 조회";
+    title.innerText = "부서별 위험성평가 조회";
     subtitle.innerText = "조회할 부서를 선택하세요.";
     
     const depts = [...new Set(history.map(h => h.department))];
@@ -2191,7 +2191,7 @@ function renderResultDeptCards() {
     if(breadcrumb) breadcrumb.style.display = 'none';
     if(detailViewer) detailViewer.style.display = 'none';
     if(emptyState) emptyState.style.display = 'none';
-    if(statusText) statusText.innerText = "최근 TBM 기록을 부서별로 조회합니다.";
+    if(statusText) statusText.innerText = "최근 점검 기록을 부서별로 조회합니다.";
 
     const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
 
@@ -2226,7 +2226,7 @@ function selectResultDept(dept) {
         bDept.style.display = 'inline';
         bDept.innerText = ` > ${dept}`;
     }
-    if(statusText) statusText.innerText = `[${dept}] 부서의 TBM 리스트입니다.`;
+    if(statusText) statusText.innerText = `[${dept}] 부서의 점검 리스트입니다.`;
 
     const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept);
     
@@ -2288,7 +2288,7 @@ function showResultDetailByGroup(groupKey) {
 
     document.getElementById('result-selection-container').style.display = 'none';
     document.getElementById('result-detail-viewer').style.display = 'block';
-    document.getElementById('result-status-text').innerText = "TBM 상세 보고서";
+    document.getElementById('result-status-text').innerText = "상세 점검 보고서";
 
     // "목록으로" 버튼 기능 연결
     const backBtn = document.getElementById('back-to-list-btn');
@@ -2296,7 +2296,7 @@ function showResultDetailByGroup(groupKey) {
         backBtn.onclick = () => {
             document.getElementById('result-selection-container').style.display = 'grid';
             document.getElementById('result-detail-viewer').style.display = 'none';
-            document.getElementById('result-status-text').innerText = `[${currentState.currentResultDept}] 부서의 TBM 리스트입니다.`;
+            document.getElementById('result-status-text').innerText = `[${currentState.currentResultDept}] 부서의 점검 리스트입니다.`;
         };
     }
 
@@ -2343,7 +2343,7 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                 ${isPreview ? "PRE-SUBMISSION REVIEW" : "KOSHA SMART SAFETY RECORD"}
             </div>
             <h1 style="font-size: 1.8rem; color: #1e293b; margin: 0; font-weight: 900; letter-spacing: -1px;">
-                ${isPreview ? "TBM 결과 미리보기" : "TBM 결과 보고서"}
+                ${isPreview ? "위험성평가 결과 미리보기" : "위험성평가 결과 보고서"}
             </h1>
             <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b; font-weight: 500;">
                 ${isPreview ? "제출 전 내용을 최종 확인해 주세요." : "본 보고서는 시스템을 통해 전송된 실시간 점검 기록입니다."}
@@ -2439,51 +2439,18 @@ function exportResultToPDF() {
         element = document.getElementById('preview-results-area');
     }
     
-    // 2. 모바일 환경에서 가장 확실한 방법은 '인쇄 -> PDF로 저장'입니다.
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    // 2. 모바일/PC 통합: 가장 확실한 방법은 브라우저의 '인쇄' 기능을 통해 'PDF로 저장'하는 것입니다.
+    showToast("🖨️ 가장 확실한 [인쇄 -> PDF로 저장] 모드를 실행합니다.");
     
-    if (isMobile) {
-        showToast("📱 모바일은 [인쇄 -> PDF로 저장]이 가장 확실합니다. 잠시 후 인쇄 창이 뜹니다.");
-        setTimeout(() => {
-            window.print();
-        }, 800);
-        return;
-    }
-
-    // 3. PC 환경에서는 기존 html2pdf 시도 (실패 시 인쇄로 자동 전환)
-    const dept = (currentState.selectedDept || "DEP").trim();
-    const task = (currentState.selectedTask || "TASK").trim();
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-    const safeName = `KOMIPO_${dateStr}_${dept}_${task}`.replace(/[<>:"/\\|?* \.()]/g, '_');
-    const finalFileName = `${safeName}.pdf`;
-
-    showToast("📄 보고서를 생성 중입니다... (안될 경우 인쇄 버튼을 눌러주세요)");
-
-    const opt = {
-        margin: 10,
-        filename: finalFileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 1.5, useCORS: true, letterRendering: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    try {
-        if (typeof html2pdf === 'undefined') {
-            console.warn("html2pdf library missing, falling back to print");
-            window.print();
-            return;
-        }
-
-        html2pdf().set(opt).from(element).save().then(() => {
-            showToast("✅ PDF 저장이 완료되었습니다!");
-        }).catch(err => {
-            console.error("PDF Library Error:", err);
-            window.print(); // 라이브러리 에러 시 최종 백업
-        });
-    } catch (e) {
-        window.print(); // 시스템 에러 시 최종 백업
-    }
+    setTimeout(() => {
+        // 루사이드 아이콘 인쇄 전 새로고침
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        
+        // 브라우저 기본 인쇄창 호출 (미리보기 화면이 뜹니다)
+        window.print();
+        
+        showToast("✅ 인쇄 창에서 '대상'을 [PDF로 저장]으로 선택해 주세요.");
+    }, 500);
 }
 
 
