@@ -1828,12 +1828,14 @@ function removeManualMeasure(hazardId, type, mIndex, stepName) {
 }
 
 function toggleRiskByHash(key, stepName) {
+    const scrollY = window.scrollY; // 현재 스크롤 위치 저장
     if (currentState.checkedItems.has(key)) {
         currentState.checkedItems.delete(key);
     } else {
         currentState.checkedItems.add(key);
     }
     renderRiskChecklist(stepName);
+    window.scrollTo(0, scrollY); // 스크롤 위치 복구
 }
 
 function toggleAccordion(index, key) {
@@ -1852,11 +1854,11 @@ function toggleAccordion(index, key) {
             targetCard.classList.add('expanded');
             measurePanel.style.display = 'block';
             
-            // Lucide 아이콘 재생성 및 부드러운 스크롤
+            // Lucide 아이콘 재생성 및 대상 카드 강조 스크롤 (화면 튕김 방지)
             if (window.lucide) window.lucide.createIcons();
             setTimeout(() => {
                 targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 50);
+            }, 30);
         }
     } else {
         // [예외처리] DOM이 없는 경우 강제 리렌더링
@@ -2444,7 +2446,12 @@ function exportResultToPDF() {
         return;
     }
 
-    // 2. 파일명 생성 로직 (v26.3 마스터)
+    // 2. 카카오톡 인앱 브라우저 여부 확인 (핵심 v26.8)
+    const ua = navigator.userAgent.toUpperCase();
+    const isKakao = ua.indexOf('KAKAOTALK') > -1;
+    const isMobile = /IPHONE|IPAD|IPOD|ANDROID/i.test(ua);
+
+    // 3. 파일명 생성 로직
     const dept = (currentState.selectedDept || currentState.currentResultDept || "DEP").trim();
     const task = (currentState.selectedTask || "TASK").trim();
     const now = new Date();
@@ -2452,17 +2459,17 @@ function exportResultToPDF() {
     const safeName = `KOMIPO_${dateStr}_${dept}_${task}`.replace(/[<>:"/\\|?* \.()]/g, '_');
     const finalFileName = `${safeName}.pdf`;
 
-    // 3. 고신뢰성 인쇄 폴백(Fallback) 타이머 설정
+    // [v26.9] 단순화된 통합 PDF 로직 (카톡 전용 로직 제거)
     let downloadSuccess = false;
-    const printFallback = () => {
+    const triggerPrint = () => {
         if (!downloadSuccess) {
-            showToast("📄 직접 다운로드가 제한된 환경입니다. [인쇄 -> PDF로 저장] 모드로 전환합니다.");
-            setTimeout(() => window.print(), 1000);
+            showToast("🖨️ 인쇄 미리보기에서 [PDF로 저장]을 선택하실 수 있습니다.");
+            setTimeout(() => window.print(), 500);
         }
     };
-    const fallbackTimer = setTimeout(printFallback, 5000); // 5초 대기
 
-    // 4. PDF 생성 옵션
+    const fallbackTimer = setTimeout(triggerPrint, 4500);
+
     const opt = {
         margin: 10,
         filename: finalFileName,
@@ -2471,16 +2478,15 @@ function exportResultToPDF() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    showToast("📄 PDF 보고서를 생성 중입니다... (PC/모바일 공용)");
+    showToast("📄 PDF 보고서를 직접 생성 중입니다...");
 
     try {
         if (typeof html2pdf === 'undefined') {
-            downloadSuccess = false;
-            printFallback();
+            clearTimeout(fallbackTimer);
+            triggerPrint();
             return;
         }
 
-        // [핵심] 생성 후 Blot/ObjectURL 방식으로 직접 트리거 (가장 성공률 높음)
         html2pdf().set(opt).from(element).toPdf().get('pdf').output('blob').then((pdfBlob) => {
             downloadSuccess = true;
             clearTimeout(fallbackTimer);
@@ -2492,7 +2498,6 @@ function exportResultToPDF() {
             a.download = finalFileName;
             document.body.appendChild(a);
             
-            // 트리거
             a.click();
             
             setTimeout(() => {
@@ -2502,11 +2507,13 @@ function exportResultToPDF() {
             }, 1000);
         }).catch(err => {
             console.error("PDF Library Error:", err);
-            printFallback();
+            clearTimeout(fallbackTimer);
+            triggerPrint();
         });
     } catch (e) {
         console.error("PDF System Error:", e);
-        printFallback();
+        clearTimeout(fallbackTimer);
+        triggerPrint();
     }
 }
 
