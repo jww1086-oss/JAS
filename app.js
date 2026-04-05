@@ -2433,24 +2433,81 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
 }
 
 function exportResultToPDF() {
-    // 1. 현재 화면에서 실제 리포트 내용이 담긴 영역 지능형 감지 (v26.1 마스터)
+    // 1. 현재 화면에서 실제 리포트 내용이 담긴 영역 지능형 감지
     let element = document.getElementById('pdf-content-area');
     if (!element || element.offsetHeight < 50 || document.getElementById('result-detail-viewer').style.display === 'none') {
         element = document.getElementById('preview-results-area');
     }
     
-    // 2. 모바일/PC 통합: 가장 확실한 방법은 브라우저의 '인쇄' 기능을 통해 'PDF로 저장'하는 것입니다.
-    showToast("🖨️ 가장 확실한 [인쇄 -> PDF로 저장] 모드를 실행합니다.");
-    
-    setTimeout(() => {
-        // 루사이드 아이콘 인쇄 전 새로고침
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        
-        // 브라우저 기본 인쇄창 호출 (미리보기 화면이 뜹니다)
-        window.print();
-        
-        showToast("✅ 인쇄 창에서 '대상'을 [PDF로 저장]으로 선택해 주세요.");
-    }, 500);
+    if (!element || element.offsetHeight < 50) {
+        showToast("⚠️ 출력할 데이터가 준비되지 않았습니다.");
+        return;
+    }
+
+    // 2. 파일명 생성 로직 (v26.3 마스터)
+    const dept = (currentState.selectedDept || currentState.currentResultDept || "DEP").trim();
+    const task = (currentState.selectedTask || "TASK").trim();
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    const safeName = `KOMIPO_${dateStr}_${dept}_${task}`.replace(/[<>:"/\\|?* \.()]/g, '_');
+    const finalFileName = `${safeName}.pdf`;
+
+    // 3. 고신뢰성 인쇄 폴백(Fallback) 타이머 설정
+    let downloadSuccess = false;
+    const printFallback = () => {
+        if (!downloadSuccess) {
+            showToast("📄 직접 다운로드가 제한된 환경입니다. [인쇄 -> PDF로 저장] 모드로 전환합니다.");
+            setTimeout(() => window.print(), 1000);
+        }
+    };
+    const fallbackTimer = setTimeout(printFallback, 5000); // 5초 대기
+
+    // 4. PDF 생성 옵션
+    const opt = {
+        margin: 10,
+        filename: finalFileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 1.5, useCORS: true, letterRendering: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    showToast("📄 PDF 보고서를 생성 중입니다... (PC/모바일 공용)");
+
+    try {
+        if (typeof html2pdf === 'undefined') {
+            downloadSuccess = false;
+            printFallback();
+            return;
+        }
+
+        // [핵심] 생성 후 Blot/ObjectURL 방식으로 직접 트리거 (가장 성공률 높음)
+        html2pdf().set(opt).from(element).toPdf().get('pdf').output('blob').then((pdfBlob) => {
+            downloadSuccess = true;
+            clearTimeout(fallbackTimer);
+            
+            const url = window.URL.createObjectURL(pdfBlob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = finalFileName;
+            document.body.appendChild(a);
+            
+            // 트리거
+            a.click();
+            
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                if (document.body.contains(a)) document.body.removeChild(a);
+                showToast("✅ PDF 다운로드가 시작되었습니다!");
+            }, 1000);
+        }).catch(err => {
+            console.error("PDF Library Error:", err);
+            printFallback();
+        });
+    } catch (e) {
+        console.error("PDF System Error:", e);
+        printFallback();
+    }
 }
 
 
