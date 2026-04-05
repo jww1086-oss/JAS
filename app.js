@@ -2387,11 +2387,11 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                                             </div>
                                             <div style="font-size: 0.88rem; color: #1e293b; line-height: 1.5; white-space: pre-line; font-weight: 600;">${l.현재안전조치 || "없음"}</div>
                                         </div>
-                                        <div style="text-align: right; min-width: 120px;">
-                                            <div style="font-weight: 800; color: #94a3b8; font-size: 0.65rem; margin-bottom: 6px;">빈도/강도/위험도</div>
-                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
-                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">빈도 ${l.현재_빈도 || 1}</span>
-                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">강도 ${l.현재_강도 || 1}</span>
+                                        <div style="text-align: right; min-width: 85px;">
+                                            <div style="font-weight: 800; color: #94a3b8; font-size: 0.55rem; margin-bottom: 4px; letter-spacing: -0.5px;">빈/강/위</div>
+                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 3px;">
+                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">빈 ${l.현재_빈도 || 1}</span>
+                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f1f5f9; border-radius:4px; color:#475569; font-weight:700;">강 ${l.현재_강도 || 1}</span>
                                                 ${getReportScoreBadge(curScore)}
                                             </div>
                                         </div>
@@ -2405,11 +2405,11 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                                             </div>
                                             <div style="font-size: 0.88rem; color: #166534; line-height: 1.5; white-space: pre-line; font-weight: 700;">${l.개선대책 || "없음"}</div>
                                         </div>
-                                        <div style="text-align: right; min-width: 120px; padding-top: 10px;">
-                                            <div style="font-weight: 800; color: #10b981; font-size: 0.65rem; margin-bottom: 6px;">빈도/강도/위험도</div>
-                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
-                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">빈도 ${l.잔류_빈도 || 1}</span>
-                                                <span style="font-size:0.65rem; padding:2px 6px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">강도 ${l.잔류_강도 || 1}</span>
+                                        <div style="text-align: right; min-width: 85px; padding-top: 10px;">
+                                            <div style="font-weight: 800; color: #10b981; font-size: 0.55rem; margin-bottom: 4px; letter-spacing: -0.5px;">빈/강/위</div>
+                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 3px;">
+                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">빈 ${l.잔류_빈도 || 1}</span>
+                                                <span style="font-size:0.6rem; padding:1px 4px; background:#f0fdf4; border-radius:4px; color:#059669; font-weight:700;">강 ${l.잔류_강도 || 1}</span>
                                                 ${getReportScoreBadge(resScore)}
                                             </div>
                                         </div>
