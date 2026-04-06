@@ -207,27 +207,43 @@ async function fetchData(url) {
     }
 }
 
-// [v33.5] 구글 시트 고속 읽기 전용 엔진 (GViz) - 가장 짧은 시간 내 데이터 로드
-async function fetchGViz(sheetName) {
-    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-    try {
-        const response = await fetch(url);
-        const text = await response.text();
-        const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
-        const json = JSON.parse(jsonStr);
+// [v33.5-HYPER] 구글 시트 고속 읽기 전용 엔진 (GViz + JSONP) - CORS 보안 우회 및 최단 시간 로드
+function fetchGViz(sheetName) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'gviz_cb_' + Math.round(100000 * Math.random());
+        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=${encodeURIComponent(sheetName)}`;
         
-        const cols = json.table.cols.map(c => (c.label || "").trim());
-        return json.table.rows.map(row => {
-            let obj = {};
-            row.c.forEach((cell, i) => {
-                if (cols[i]) obj[cols[i]] = cell ? (cell.v !== null ? cell.v : "") : "";
+        window[callbackName] = (data) => {
+            delete window[callbackName];
+            const script = document.getElementById(callbackName);
+            if (script) script.remove();
+
+            if (data.status === 'error') {
+                reject(new Error(data.errors[0].detailed_message));
+                return;
+            }
+
+            const cols = data.table.cols.map(c => (c.label || "").trim());
+            const rows = data.table.rows.map(row => {
+                let obj = {};
+                row.c.forEach((cell, i) => {
+                    if (cols[i]) obj[cols[i]] = cell ? (cell.v !== null ? cell.v : "") : "";
+                });
+                return obj;
             });
-            return obj;
-        });
-    } catch (e) {
-        console.error(`GViz Fetch Error (${sheetName}):`, e);
-        throw e;
-    }
+            resolve(rows);
+        };
+
+        const script = document.createElement('script');
+        script.id = callbackName;
+        script.src = url;
+        script.onerror = () => {
+            delete window[callbackName];
+            script.remove();
+            reject(new Error('GViz 로딩 실패'));
+        };
+        document.body.appendChild(script);
+    });
 }
 
 let signaturePad;
