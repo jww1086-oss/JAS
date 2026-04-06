@@ -501,28 +501,18 @@ function renderTaskBanners(dept) {
     
     const tasks = [...new Set(currentState.risks.filter(r => r.부서명 === dept).map(r => r.작업명))];
     
-    // 최고의 퀄리티를 위한 지능형 아이콘 매핑 함수
-    const getTaskIcon = (task) => {
-        if (task.includes('전기') || task.includes('전력') || task.includes('계전기') || task.includes('VCB')) return 'zap';
-        if (task.includes('점검') || task.includes('시험') || task.includes('측정')) return 'activity';
-        if (task.includes('작업') || task.includes('보수') || task.includes('정비')) return 'hammer';
-        if (task.includes('해체') || task.includes('철거')) return 'trash-2';
-        if (task.includes('설치') || task.includes('조립')) return 'package-plus';
-        if (task.includes('화재') || task.includes('소방')) return 'flame';
-        return 'clipboard-list';
-    };
-
-    container.innerHTML = tasks.map(task => `
-        <div class="task-banner-card" onclick="selectAssessmentTask('${task}')">
-            <div class="tbc-icon"><i data-lucide="${getTaskIcon(task)}"></i></div>
-            <div class="tbc-text">
-                <div class="title">${task}</div>
-                <div class="desc-tag">현재 작업 프로세스</div>
-            </div>
-            <i data-lucide="chevron-right" class="tbc-arrow"></i>
+    // [v33.7] 초슬림 그리드로 변경하여 스크롤 최소화 및 누락 방지
+    container.innerHTML = `
+        <div class="compact-task-grid">
+            ${tasks.map(task => `
+                <div class="compact-task-item" onclick="selectAssessmentTask('${task}')">
+                    <div class="title">${task}</div>
+                </div>
+            `).join('')}
         </div>
-    `).join('');
+    `;
     
+    // 아이콘이 없으므로 lucide 호출은 생략 가능하나 안정성을 위해 유지
     if (window.lucide) window.lucide.createIcons();
 }
 
@@ -1040,10 +1030,14 @@ function processRiskData(riskData) {
     if (!riskData || riskData.length === 0) return;
     const allRisks = [];
     riskData.forEach(item => {
+        // [v33.7.1] 구글 시트 헤더 매핑 정상화
         const cleanedHazard = cleanValue(item.위험요인 || item.hazard || "");
-        const cleanedMeasures = cleanValue(item.현재안전조치 || item.current_measures || "");
+        const currentMeasuresStr = cleanValue(item.현재안전조치 || item.current_measures || "");
+        const improvementMeasuresStr = cleanValue(item.개선대책 || item.improvement_measures || "");
+        
         const hazards = smartSplit(cleanedHazard);
-        const measures = smartSplit(cleanedMeasures);
+        const currentMeasures = smartSplit(currentMeasuresStr);
+        const improvementMeasures = smartSplit(improvementMeasuresStr);
         
         hazards.forEach(h => {
             allRisks.push({
@@ -1051,7 +1045,8 @@ function processRiskData(riskData) {
                 작업명: cleanValue(item.작업명 || item.task || "미정의 작업"),
                 작업단계: cleanValue(item.작업단계 || item.step || "미정의 단계"),
                 위험요인: h,
-                개선대책: measures,
+                current_measures: currentMeasures,      // [정상 매핑] 현재안전조치
+                improvement_measures: improvementMeasures, // [신규 매핑] 개선대책
                 current_frequency: item.현재_빈도 || item.current_frequency || 1,
                 current_severity: item.현재_강도 || item.current_severity || 1,
                 current_score: item.현재_위험도 || item.current_score || 1
@@ -1354,6 +1349,55 @@ function renderRiskChecklist(stepName) {
                     <i data-lucide="chevron-down" class="expand-icon" style="transition: 0.3s; ${isExpanded ? 'transform: rotate(180deg);' : ''}"></i>
                 </div>
 
+                <style>
+                    /* [v33.7] Compact Task Selection Engine - Ultra Slim Grid */
+                    .compact-task-grid {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 8px;
+                        padding: 10px 0;
+                    }
+
+                    .compact-task-item {
+                        background: white;
+                        border-radius: 14px;
+                        padding: 12px 14px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        text-align: center;
+                        border: 1.2px solid #e2e8f0;
+                        cursor: pointer;
+                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                        min-height: 52px;
+                    }
+
+                    .compact-task-item .title {
+                        font-weight: 800;
+                        font-size: 0.88rem;
+                        color: #334155;
+                        line-height: 1.25;
+                        word-break: keep-all;
+                        display: -webkit-box;
+                        -webkit-line-clamp: 2;
+                        -webkit-box-orient: vertical;
+                        overflow: hidden;
+                    }
+
+                    .compact-task-item:hover {
+                        background: #eff6ff;
+                        border-color: var(--doing-blue);
+                        transform: translateY(-2px);
+                        box-shadow: 0 8px 15px rgba(14, 165, 233, 0.1);
+                    }
+
+                    .compact-task-item:active {
+                        transform: scale(0.96);
+                        background: #e0f2fe;
+                    }
+                </style>
+
                 <div class="measure-container" id="measure-panel-${i}" style="margin-top: 0; display: ${isExpanded ? 'block' : 'none'};">
                     <!-- Section 1: 현재안전조치 -->
                     <div style="margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
@@ -1361,7 +1405,7 @@ function renderRiskChecklist(stepName) {
                             <i data-lucide="shield-check" style="width:14px;"></i> [현재안전조치]
                         </p>
                         <ul class="measure-list" style="margin-bottom: 1rem;">
-                            ${measures.map((m, mi) => {
+                            ${(r.current_measures || []).map((m, mi) => {
                                 const mKey = `${key}-m-${mi}`;
                                 const isMChecked = currentState.checkedMeasures.has(mKey);
                                 return `
@@ -1413,13 +1457,9 @@ function renderRiskChecklist(stepName) {
                         </p>
                     
                         <ul class="measure-list improvement" style="margin-bottom: 1rem;">
-                            ${measures.map((m, mi) => {
-                                const mKey = `${key}-m-${mi}`;
-                                const isMChecked = currentState.checkedMeasures.has(mKey);
+                            ${(r.improvement_measures || []).map((m, mi) => {
+                                const mKey = `${key}-im-${mi}`; // [주의] 개선대책 전용 키 생성
                                 const isMImproved = currentState.improvedMeasures.has(mKey);
-                                
-                                // [개선] 현재 실천 중(Checked)인 항목은 개선대책 목록에서 제외
-                                if (isMChecked) return '';
                                 
                                 return `
                                     <li class="measure-item ${isMImproved ? 'improved' : ''}" 
@@ -1432,8 +1472,8 @@ function renderRiskChecklist(stepName) {
                                     </li>
                                 `;
                             }).join('')}
-                            ${measures.every((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)) ? 
-                                `<li style="text-align:center; padding:15px; color:#94a3b8; font-size:0.85rem; background:#f8fafc; border-radius:12px; border:1px dashed #e2e8f0;">✅ 모든 표준 안전조치가 실천 중입니다.</li>` : ''}
+                            ${(r.improvement_measures || []).length === 0 ? 
+                                `<li style="text-align:center; padding:15px; color:#94a3b8; font-size:0.85rem; background:#f8fafc; border-radius:12px; border:1px dashed #e2e8f0;">✅ 등록된 표준 개선대책이 없습니다.</li>` : ''}
                         </ul>
 
                         <div class="manual-input-area" style="margin-bottom: 1rem;">
@@ -2121,13 +2161,14 @@ async function submitLog() {
         
         const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
         
-        // 점검표 렌더링 로직과 동일하게 줄바꿈 분리
-        const measures = Array.isArray(r.개선대책) ? r.개선대책 : (r.개선대책 ? r.개선대책.split('\n') : []);
+        // [v33.7.1] 개별 정의된 안전조치/개선대책 데이터 추출
+        const currentMeasures = Array.isArray(r.current_measures) ? r.current_measures : (r.current_measures ? r.current_measures.split('\n') : []);
+        const improvementMeasures = Array.isArray(r.improvement_measures) ? r.improvement_measures : (r.improvement_measures ? r.improvement_measures.split('\n') : []);
         
-        const currentChecked = [...measures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current]
+        const currentChecked = [...currentMeasures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current]
             .filter(v => v && v.trim()).map(v => v.includes('[이행]') ? v : `[이행] ${v}`).join('\n');
             
-        const improvedList = [...measures.filter((_, mi) => currentState.improvedMeasures.has(`${key}-m-${mi}`)), mNotes.improvement]
+        const improvedList = [...improvementMeasures.filter((_, mi) => currentState.improvedMeasures.has(`${key}-im-${mi}`)), mNotes.improvement]
             .filter(v => v && v.trim()).map(v => v.includes('[개선]') ? v : `[개선] ${v}`).join('\n');
             
         return {
@@ -2135,7 +2176,7 @@ async function submitLog() {
             task_name: currentState.selectedTask,
             step_name: r.작업단계 || currentState.selectedStep,
             hazard: r.위험요인,
-            current_measures: currentChecked || "없음",
+            current_measures: currentChecked || "진행 중",
             improvements_checked: improvedList || "없음",
             current_frequency: riskData.current.frequency,
             current_severity: riskData.current.severity,
