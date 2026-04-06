@@ -458,7 +458,7 @@ function renderDeptBanners() {
     if (!currentState.risks || currentState.risks.length === 0) {
         container.innerHTML = `
             <div style="padding: 3rem 1rem; text-align: center; color: #64748b; background: white; border-radius: 20px; border: 1px dashed #e2e8f0;">
-                <link rel="stylesheet" href="style.css?v=33.7.1">
+                <link rel="stylesheet" href="style.css?v=33.7.1-ULT">
                 <div class="loader-spinner" style="margin-bottom: 12px; font-size: 1.5rem; animation: spin 2s linear infinite;">🔄</div>
                 <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">데이터를 동기화하고 있습니다...</div>
                 <div style="font-size: 0.8rem; margin-top: 6px; opacity: 0.7;">3~5초 정도 소요될 수 있습니다.</div>
@@ -1031,9 +1031,16 @@ function processRiskData(riskData) {
     if (!riskData || riskData.length === 0) return;
     const allRisks = [];
     riskData.forEach(item => {
-        // [v33.7.1] 방어적 매핑(Defensive Mapping) 로직 추가
+        // [v33.7.1-ULTIMATE] 지능형 헤더 탐색기 (Intelligence Header Mapping)
         const getV = (obj, keys) => {
+            // 1. 직접 매칭 (가장 빠름)
             for(let k of keys) if(obj[k] !== undefined) return obj[k];
+            // 2. 유연한 매칭 (대소문자, 공백, 언더바 무시)
+            const norm = s => String(s).toLowerCase().replace(/[\s_]/g, '');
+            const normKeys = keys.map(norm);
+            for(let key in obj) {
+                if(normKeys.includes(norm(key))) return obj[key];
+            }
             return "";
         };
 
