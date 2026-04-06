@@ -458,7 +458,7 @@ function renderDeptBanners() {
     if (!currentState.risks || currentState.risks.length === 0) {
         container.innerHTML = `
             <div style="padding: 3rem 1rem; text-align: center; color: #64748b; background: white; border-radius: 20px; border: 1px dashed #e2e8f0;">
-                <link rel="stylesheet" href="style.css?v=33.7.1-ULT">
+                <link rel="stylesheet" href="style.css?v=33.7.2">
                 <div class="loader-spinner" style="margin-bottom: 12px; font-size: 1.5rem; animation: spin 2s linear infinite;">🔄</div>
                 <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">데이터를 동기화하고 있습니다...</div>
                 <div style="font-size: 0.8rem; margin-top: 6px; opacity: 0.7;">3~5초 정도 소요될 수 있습니다.</div>
@@ -1045,8 +1045,8 @@ function processRiskData(riskData) {
         };
 
         const cleanedHazard = cleanValue(getV(item, ["위험요인", "hazard"]) || "");
-        const currentMeasuresStr = cleanValue(getV(item, ["현재안전조치", "current_measures", "현재_안전조치"]) || "");
-        const improvementMeasuresStr = cleanValue(getV(item, ["개선대책", "improvement_measures", "개선_대책"]) || "");
+        const currentMeasuresStr = cleanValue(getV(item, ["현재안전조치", "현재안전조치_이행내역", "현재안전조치_내용", "current_measures", "현재_안전조치"]) || "");
+        const improvementMeasuresStr = cleanValue(getV(item, ["개선대책", "개선대책_이행내역", "개선대책_내용", "improvement_measures", "개선_대책", "개선대책내용"]) || "");
         
         const hazards = smartSplit(cleanedHazard);
         const currentMeasures = smartSplit(currentMeasuresStr);
