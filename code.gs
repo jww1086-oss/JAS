@@ -1,12 +1,20 @@
 /**
- * KOMIPO 스마트 안전 시스템 - Google Apps Script (v25.4-premium)
- * 
- * [설정 방법]
- * 1. SPREADSHEET_ID를 실제 구글 시트 ID로 변경하세요.
- * 2. 수정한 후 '배포' -> '새 배포' -> '웹 앱' (액세스 권한: 모든 사용자)으로 배포합니다.
+ * KOMIPO 스마트 안전 시스템 - Google Apps Script (v32.0-ULTIMATE)
+ * 1. 실제 사용 중인 시트 이름과 완벽 동기화 (위험성평가실시, TBM실시, 개선대책실행계획서)
+ * 2. 사진 및 서명 이미지 자동 삽입 (Base64 to Blob)
+ * 3. 행 높이 자동 조절 기능 포함
  */
 
-const SPREADSHEET_ID = "1_qLqeCtpr8D66oj7TjNwqvvUNa4xU7m_QVpdyzKryeE"; 
+const SPREADSHEET_ID = "1_qLqeCtpr8D66oj7TjNwqvvUNa4xU7m_QVpdyzKryeE";
+
+// [핵심] 시트 이름 설정 (사용자 시트와 동일하게 설정됨)
+const SHEET_NAMES = {
+  MASTER: "위험성평가자료",
+  USERS: "평가자명단",
+  LOGS: "위험성평가실시",
+  TBM_LOGS: "TBM실시",
+  IMPROVE_PLAN: "개선대책실행계획서"
+};
 
 function doGet(e) {
   try {
@@ -14,15 +22,15 @@ function doGet(e) {
     const type = e.parameter.type || "master";
     const callback = e.parameter.callback;
     
-    let sheetName = "위험성_마스터";
-    if (type === "users") sheetName = "평가자명단";
-    else if (type === "logs") sheetName = "실시로그";
+    let sheetName = SHEET_NAMES.MASTER;
+    if (type === "users") sheetName = SHEET_NAMES.USERS;
+    else if (type === "logs") sheetName = SHEET_NAMES.LOGS;
     
     const sheet = ss.getSheetByName(sheetName);
-    if (!sheet) throw new Error("'" + sheetName + "' 시트를 찾을 수 없습니다.");
+    if (!sheet) return returnJSONP([], callback); // 시트 없으면 빈 배열
     
     const data = sheet.getDataRange().getValues();
-    if (data.length <= 1) return returnJSONP([], callback); // 데이터가 헤더뿐이면 빈 배열 반환
+    if (data.length <= 1) return returnJSONP([], callback);
 
     const headers = data[0];
     const rows = data.slice(1);
@@ -36,20 +44,8 @@ function doGet(e) {
     });
     
     return returnJSONP(result, callback);
-    
   } catch (err) {
     return returnJSONP({ status: "error", message: err.message }, e.parameter.callback);
-  }
-}
-
-function returnJSONP(data, callback) {
-  const jsonString = JSON.stringify(data);
-  if (callback) {
-    return ContentService.createTextOutput(callback + "(" + jsonString + ")")
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
-  } else {
-    return ContentService.createTextOutput(jsonString)
-      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -57,69 +53,102 @@ function doPost(e) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const params = JSON.parse(e.postData.contents);
-    
-    // 1. '실시로그' 시트 확보 및 헤더 자동 생성 (16컬럼 정밀 모드)
-    let logSheet = ss.getSheetByName("실시로그");
+    const now = new Date();
+    const worker = params.worker || "미정";
+    const dept = params.department || "미지정";
+    const task = params.task || "내용없음";
+
+    // 1. TBM 제출 처리 (TBM실시 시트)
+    if (params.type === "TBM_SUBMISSION") {
+      let tbmSheet = ss.getSheetByName(SHEET_NAMES.TBM_LOGS);
+      if (!tbmSheet) {
+        tbmSheet = ss.insertSheet(SHEET_NAMES.TBM_LOGS);
+        tbmSheet.appendRow(["일시", "부서명", "작업명", "점검자", "체크항목수", "서명", "상태"]);
+        tbmSheet.getRange(1, 1, 1, 7).setBackground("#eff6ff").setFontWeight("bold");
+      }
+      
+      const lastRow = tbmSheet.getLastRow() + 1;
+      tbmSheet.appendRow([now, dept, task, worker, params.checkedCount || 0, "", "완료"]);
+      
+      // 서명 이미지 삽입
+      if (params.signature) {
+        insertImageSafe(tbmSheet, params.signature, lastRow, 6);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. 위험성평가 로그 처리 (위험성평가실시 시트)
+    let logSheet = ss.getSheetByName(SHEET_NAMES.LOGS);
     if (!logSheet) {
-      logSheet = ss.insertSheet("실시로그");
+      logSheet = ss.insertSheet(SHEET_NAMES.LOGS);
       logSheet.appendRow([
         "일시", "부서명", "작업명", "점검자", "작업단계", "위험요인", 
         "현재안전조치", "개선대책", "현재_빈도", "현재_강도", "현재_위험도", 
-        "잔류_빈도", "잔류_강도", "잔류_위험도", "사진URL", "서명URL"
+        "잔류_빈도", "잔류_강도", "잔류_위험도", "현장사진", "최종서명"
       ]);
       logSheet.getRange(1, 1, 1, 16).setBackground("#f8fafc").setFontWeight("bold");
     }
-    
-    const now = new Date();
-    const worker = params.worker || "미지정";
-    const dept = params.department || "미지정";
-    const task = params.task || "내용없음";
-    
-    // 2. 다중 로그(logs[]) 데이터 저장 (A-P열 매핑)
+
     if (params.logs && Array.isArray(params.logs)) {
       params.logs.forEach(log => {
+        const lastRow = logSheet.getLastRow() + 1;
         logSheet.appendRow([
-          now,                            // A: 일시
-          dept,                           // B: 부서명
-          task,                           // C: 작업명
-          worker,                         // D: 점검자
-          log.step_name || "",            // E: 작업단계
-          log.hazard || "",               // F: 위험요인
-          log.current_measures || "",      // G: 현재안전조치
-          log.improvements_checked || "", // H: 개선대책
-          log.current_frequency || 1,     // I: 현재_빈도
-          log.current_severity || 1,      // J: 현재_강도
-          log.current_score || 1,         // K: 현재_위험도
-          log.residual_frequency || 1,    // L: 잔류_빈도
-          log.residual_severity || 1,     // M: 잔류_강도
-          log.residual_score || 1,        // N: 잔류_위험도
-          params.photo || "",             // O: 사진URL
-          params.signature || ""          // P: 서명URL
+          now, dept, task, worker, 
+          log.step_name || "", log.hazard || "", log.current_measures || "", log.improvements_checked || "",
+          log.current_frequency || 1, log.current_severity || 1, log.current_score || 1,
+          log.residual_frequency || 1, log.residual_severity || 1, log.residual_score || 1,
+          "", "" // 사진, 서명 자리는 비워두고 아래에서 삽입
         ]);
+        
+        // 사진 및 서명 삽입 (마지막 로그에만 또는 매 로그에 삽입)
+        if (params.photo) insertImageSafe(logSheet, params.photo, lastRow, 15);
+        if (params.signature) insertImageSafe(logSheet, params.signature, lastRow, 16);
       });
     }
 
-    // 3. '개선대책_실행계획서' 동기화 (있는 경우만)
+    // 3. 개선대책 실행계획서 자동 기입 (개선대책실행계획서 시트)
     if (params.improvement_plan && params.improvement_plan.length > 0) {
-      let improveSheet = ss.getSheetByName("개선대책_실행계획서");
+      let improveSheet = ss.getSheetByName(SHEET_NAMES.IMPROVE_PLAN);
       if (!improveSheet) {
-        improveSheet = ss.insertSheet("개선대책_실행계획서");
-        improveSheet.appendRow(["개선예정일", "담당부서", "작업명", "위험요인", "개선대책", "담당자", "상태"]);
-        improveSheet.getRange(1, 1, 1, 7).setBackground("#f1f5f9").setFontWeight("bold");
+        improveSheet = ss.insertSheet(SHEET_NAMES.IMPROVE_PLAN);
+        improveSheet.appendRow(["기록일시", "부서명", "작업명", "위험요인", "개선대책내용", "담당자", "상태", "현장사진"]);
+        improveSheet.getRange(1, 1, 1, 8).setBackground("#fff7ed").setFontWeight("bold");
       }
       
       params.improvement_plan.forEach(plan => {
-        improveSheet.appendRow([
-          plan.improvement_date, dept, task, plan.hazard, plan.improvement_measure, worker, "진행중"
-        ]);
+        const lastRow = improveSheet.getLastRow() + 1;
+        improveSheet.appendRow([now, dept, task, plan.hazard, plan.improvement_measure, worker, "진행중", ""]);
+        
+        // 개선 대책 관련 사진이 있다면 삽입 (전체 사진 활용)
+        if (params.photo) insertImageSafe(improveSheet, params.photo, lastRow, 8);
       });
     }
-    
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
-      .setMimeType(ContentService.MimeType.JSON);
-      
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message })).setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+/** [Helper] Base64 이미지를 시트 셀에 실제 그림으로 삽입 */
+function insertImageSafe(sheet, base64Str, row, col) {
+  try {
+    if (!base64Str || !base64Str.includes(",")) return;
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64Str.split(",")[1]), "image/png", "upload_" + row + "_" + col + ".png");
+    
+    // 행 높이 조절 (이미지가 잘 보이도록)
+    sheet.setRowHeight(row, 80);
+    sheet.setColumnWidth(col, 120);
+    
+    sheet.insertImage(blob, col, row, 5, 5).setHeight(70).setWidth(110);
+  } catch (e) {
+    sheet.getRange(row, col).setValue("이미지 삽입 실패");
+  }
+}
+
+function returnJSONP(data, callback) {
+  const jsonString = JSON.stringify(data);
+  return callback 
+    ? ContentService.createTextOutput(callback + "(" + jsonString + ")").setMimeType(ContentService.MimeType.JAVASCRIPT)
+    : ContentService.createTextOutput(jsonString).setMimeType(ContentService.MimeType.JSON);
 }

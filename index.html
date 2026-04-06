@@ -29,7 +29,7 @@
     <!-- PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <link rel="stylesheet" href="style.css?v=25.2">
+    <link rel="stylesheet" href="style.css?v=33.3">
 </head>
 <body>
     <div class="app-shell">
@@ -40,12 +40,12 @@
                     <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v26.3</span></h1>
                     <p style="font-size: 0.85rem; font-weight: 700; color: #64748b; margin-top: -2px;">한국중부발전</p>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div id="network-status" class="status-indicator">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                    <div id="network-status" class="status-indicator" style="margin: 0; padding: 2px 8px;">
                         <span class="dot"></span>
-                        <span class="status-text">준비 완료</span>
+                        <span class="status-text">실시간 ON</span>
                     </div>
-                    <div id="current-date" class="header-date"></div>
+                    <div id="current-date" class="header-date" style="color: #94a3b8; font-size: 0.7rem; font-weight: 500;"></div>
                 </div>
             </header>
 
@@ -83,12 +83,13 @@
                         </div>
                         <span>위험성<br>평가</span>
                     </div>
-                    <div class="grid-card" onclick="openResultsView()">
-                        <div class="icon-box" style="background:#10b981;">
-                            <i data-lucide="file-search"></i>
+                    <div class="grid-card" onclick="openTBMView()">
+                        <div class="icon-box" style="background:#e0f2fe; color:#0369a1;">
+                            <i data-lucide="message-square"></i>
                         </div>
-                        <span>점검 결과<br>조회</span>
+                        <span>TBM</span>
                     </div>
+
                     <div class="grid-card">
                         <div class="icon-box color-purple">
                             <i data-lucide="clock"></i>
@@ -354,6 +355,76 @@
                 </div>
             </section>
 
+            <!-- Phase: TBM Check (New Module) -->
+            <section id="step-tbm" class="phase">
+                <div class="section-header">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h2>현장 TBM 점검</h2>
+                    </div>
+                    <p id="tbm-status-text" style="font-size:0.85rem; color:#64748b; font-weight:600; margin-top:4px;">작업 시작 전 위험 요소를 다시 한번 확인합니다.</p>
+                </div>
+                
+                <div id="tbm-selection-container" class="selection-banner-list">
+                    <!-- Dept/Task selections -->
+                </div>
+
+                <div id="tbm-checklist-viewer" style="display:none;">
+                    <div id="tbm-checklist-area" class="checklist">
+                        <!-- Checklist items -->
+                    </div>
+
+                    <!-- TBM Footer Info: Inspector & Signature -->
+                    <div class="tbm-footer-inputs" style="background:white; border-radius:24px; padding:20px; margin-top:20px; border:1.8px solid #f1f5f9;">
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block; font-weight:800; color:#475569; font-size:0.85rem; margin-bottom:8px;">점검자 성명</label>
+                            <input type="text" id="tbm-worker-name" placeholder="점검자 성명을 입력하세요" 
+                                   style="width:100%; padding:14px; border-radius:12px; border:1.5px solid #e2e8f0; font-weight:700;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:800; color:#475569; font-size:0.85rem; margin-bottom:8px;">점검자 서명</label>
+                            <div style="border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#f8fafc;">
+                                <canvas id="tbm-signature-pad" style="width:100%; height:150px; cursor:crosshair;"></canvas>
+                            </div>
+                            <button type="button" onclick="clearTBMSignature()" 
+                                    style="margin-top:8px; background:none; border:none; color:#94a3b8; font-size:0.75rem; font-weight:700; cursor:pointer;">
+                                <i data-lucide="rotate-ccw" style="width:12px; vertical-align:middle;"></i> 서명 지우기
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="btn-container" style="margin-top:30px; display:grid; grid-template-columns:1fr 2fr; gap:12px;">
+                        <button class="btn btn-secondary" id="tbm-back-to-list-btn" style="margin-top:0;">
+                            <i data-lucide="arrow-left"></i> 이전
+                        </button>
+                        <button class="btn btn-primary" onclick="submitTBM()" style="background:var(--doing-success); box-shadow:0 10px 20px rgba(16, 185, 129, 0.2);">
+                            <i data-lucide="check-circle-2"></i> TBM 제출 및 종료
+                        </button>
+                    </div>
+                </div>
+
+                <div class="btn-container" id="tbm-footer-btns" style="margin-top:25px;">
+                    <button class="btn btn-secondary" onclick="goHome()">메인 화면으로</button>
+                </div>
+            </section>
+
+            <!-- [v30.1] Premium Success Phase -->
+            <section id="step-success" class="phase">
+                <div class="success-animation-container">
+                    <div class="success-checkmark">
+                        <i data-lucide="check"></i>
+                    </div>
+                    <div class="success-title">제출 완료!</div>
+                    <div class="success-desc">
+                        데이터가 구글 시트에 안전하게 전송되었습니다.<br>
+                        꼼꼼한 점검 수고 많으셨습니다.
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="goHome()" style="max-width:280px; margin:0 auto;">
+                        <i data-lucide="layout-dashboard"></i> 대시보드로 돌아가기
+                    </button>
+                </div>
+            </section>
+
             </main>
 
             <!-- Bottom Navigation -->
@@ -389,7 +460,8 @@
         <div class="loader"></div>
     </div>
 
-    <script src="app.js?v=25.2"></script>
+    <script src="app.js?v=33.3"></script>
+    <script src="tbm.js?v=33.3"></script>
 
 </body>
 </html>

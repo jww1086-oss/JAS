@@ -1,9 +1,15 @@
 {
   "version": 2,
+  "name": "jungbu",
   "cleanUrls": true,
-  "framework": null,
-  "installCommand": null,
-  "buildCommand": null,
-  "outputDirectory": "./",
-  "name": "jungbu-safety"
+  "trailingSlash": false,
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }

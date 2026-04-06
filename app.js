@@ -1,4 +1,5 @@
 function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
+console.log("%c🚀 KOMIPO Smart Safety System v33.3-ULTIMATE Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
@@ -27,8 +28,8 @@ const currentState = {
     allLogs: [] 
 };
 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwW2wXUmHNGSlCROkgIZ4PdSkgKY-nky_lDwIwgsYG98J1suPyTO0qE1V7PMraXwbD3FA/exec";
-// [NEW] 실시간 네트워크 상태 업데이트 함수 (v25.1)
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyvavs2Dk-OKQpIsxNcs5LwXNHjibiUcHvTTEfngo4YMBBe94Vt5VTmrOWZo2otLuaieg/exec";
+const MASTER_SHEET = "위험성평가자료";// [NEW] 실시간 네트워크 상태 업데이트 함수 (v25.1)
 function updateNetworkStatus(isOnline, message = "") {
     const indicator = document.getElementById('network-status');
     if (!indicator) return;
@@ -346,6 +347,23 @@ function switchPhase(targetId, skipHistory = false) {
     if (targetId === 'step-4') {
         const previewData = preparePreviewData();
         renderDetailedCardReport(previewData, 'preview-results-area', true);
+
+        // [v33.0] 메인 서명 패드 고해상도 대응 (펜 위치 어긋남 방지)
+        setTimeout(() => {
+            const canvas = document.getElementById('signature-pad');
+            if (canvas && typeof SignaturePad !== 'undefined') {
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext("2d").scale(ratio, ratio);
+                
+                // 기존 패드가 있다면 지우고 새로 초기화하여 좌표 동기화
+                signaturePad = new SignaturePad(canvas, {
+                    backgroundColor: 'rgba(255, 255, 255, 0)',
+                    penColor: 'rgb(0, 0, 0)'
+                });
+            }
+        }, 100);
     }
     
     if (targetId !== 'dashboard') {
@@ -927,39 +945,40 @@ async function fetchInitialData() {
     // 1. 위험성_마스터 데이터 가져오기 (독립적 처리)
     try {
         const riskData = await fetchJSONP(GAS_URL);
-        if (Array.isArray(riskData) && riskData.length > 0) {
+        if (Array.isArray(riskData)) {
             const allRisks = [];
-            riskData.forEach(item => {
-                const cleanedHazard = cleanValue(item.위험요인 || "내용 없음");
-                const cleanedMeasures = cleanValue(item.현재안전조치_이행내역 || item.현재안전조치 || "");
-                
-                // 위험요인과 개선대책을 각각 번호순으로 분리
-                const hazards = smartSplit(cleanedHazard);
-                const measures = smartSplit(cleanedMeasures);
-                
-                // 위험요인별로 개별 점검 항목 생성
-                hazards.forEach(h => {
-                    allRisks.push({
-                        부서명: cleanValue(item.부서명 || item.소속 || "미지정"),
-                        작업명: cleanValue(item.작업명 || "미정의 작업"),
-                        작업단계: cleanValue(item.작업단계 || "미정의 단계"),
-                        위험요인: h,
-                        개선대책: measures
+            if (riskData.length > 0) {
+                riskData.forEach(item => {
+                    const cleanedHazard = cleanValue(item.위험요인 || "내용 없음");
+                    const cleanedMeasures = cleanValue(item.현재안전조치_이행내역 || item.현재안전조치 || "");
+                    const hazards = smartSplit(cleanedHazard);
+                    const measures = smartSplit(cleanedMeasures);
+                    
+                    hazards.forEach(h => {
+                        allRisks.push({
+                            부서명: cleanValue(item.부서명 || item.소속 || "미지정"),
+                            작업명: cleanValue(item.작업명 || "미정의 작업"),
+                            작업단계: cleanValue(item.작업단계 || "미정의 단계"),
+                            위험요인: h,
+                            개선대책: measures
+                        });
                     });
                 });
-            });
-            currentState.risks = allRisks;
-            
-            // [오프라인 지원] 로컬 스토리지에 백업 저장
-            localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
-            
-            // 현재 화면이 Step 1(부서 선택)인 경우 UI 업데이트
-            const container = document.getElementById('selection-container');
-            if (container && container.offsetParent !== null) {
-                renderDeptBanners();
+                currentState.risks = allRisks;
+                localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
+                console.log("✅ 실시간 위험성 마스터 로드 완료:", allRisks.length, "건");
+            } else {
+                console.warn("⚠️ 시트 데이터가 비어있습니다.");
+                currentState.risks = [];
             }
             
-            console.log("✅ 실시간 위험성 마스터 로드 및 자동 분할 완료:", currentState.risks.length, "건");
+            // 데이터 유무와 상관없이 UI 업데이트 시도 (로딩 화면 해제)
+            renderDeptBanners();
+        } else if (riskData && riskData.status === "error") {
+            console.error("❌ GAS 에러 응답:", riskData.message);
+            showToast("❌ 서버 에러: " + riskData.message);
+            loadMockData();
+            renderDeptBanners();
         }
     } catch (error) {
         console.warn("⚠️ 위험성 데이터 로드 실패, 캐시된 데이터를 확인합니다:", error);
@@ -2019,8 +2038,8 @@ async function submitLog() {
     const overlay = document.getElementById('loading-overlay');
     const loadingText = overlay ? overlay.querySelector('p') : null;
     
-    if (loadingText) loadingText.innerText = "데이터를 처리 중입니다...";
-    if (overlay) overlay.classList.add('active');
+    // [v33.1] 로딩바를 건너뛰고 즉시 성공 애니메이션으로 (UX 개선)
+    if (overlay) overlay.classList.remove('active');
 
     const logs = Array.from(currentState.checkedItems).map(key => {
         const parts = key.split('-');
@@ -2068,43 +2087,67 @@ async function submitLog() {
 
     const workerNames = currentState.selectedWorkers.length > 0 ? currentState.selectedWorkers.join(', ') : currentState.selectedWorker || '';
 
+    // [v32.0] 개선대책 실행계획 데이터 추출
+    const improvementPlan = Array.from(currentState.improvedMeasures).map(mKey => {
+        const result = currentState.improvementResults[mKey] || { note: "" };
+        let hazardName = "미정의 위험요인";
+        
+        // 키 분석하여 위험요인 명칭 추출
+        if (mKey.includes('-mi-')) {
+            const hId = mKey.split('-mi-')[0];
+            const hazard = (currentState.manualHazards || []).find(h => h.id === hId);
+            if (hazard) hazardName = hazard.hazardName;
+        } else {
+            const parts = mKey.split('-m-');
+            if (parts.length >= 2) {
+                const hazardHash = parts[0].split('-').pop();
+                const risk = currentState.risks.find(r => getHash(r.위험요인) === hazardHash);
+                if (risk) hazardName = risk.위험요인;
+            }
+        }
+
+        return {
+            hazard: hazardName,
+            improvement_measure: result.note || "현장 즉시 개선 권고",
+            improvement_date: new Date().toLocaleDateString('ko-KR')
+        };
+    });
+
     const payload = {
         worker: workerNames,
         department: currentState.selectedDept,
         task: currentState.selectedTask,
         step: currentState.selectedStep,
         logs: logs,
-        improvement_plan: [], 
+        improvement_plan: improvementPlan, 
         overall_improvement: document.getElementById('overall-improvement')?.value || "",
         photo: currentState.photoBase64 || "",
         signature: typeof signaturePad !== 'undefined' && !signaturePad.isEmpty() ? signaturePad.toDataURL() : ""
     };
-
     try {
-        if (loadingText) loadingText.innerText = "데이터를 전송 중입니다...";
-        await fetch(GAS_URL, {
+        // [v30.1] 즉각적인 성공 화면 전환 (UX 개선)
+        switchPhase('step-success');
+        if (window.lucide) window.lucide.createIcons();
+
+        // [배경 처리] 구글 시트로 데이터 전송
+        fetch(GAS_URL, {
             method: "POST",
             mode: "no-cors",
             body: JSON.stringify(payload),
             headers: { 'Content-Type': 'text/plain' }
+        }).then(() => {
+            console.log("✅ 데이터 전송 완료 (백그라운드)");
+            const draftKey = `KOMIPO_DRAFT_${currentState.selectedDept}_${currentState.selectedTask}`;
+            localStorage.removeItem(draftKey);
+        }).catch(err => {
+            console.warn("⚠️ 전송 실패, 대기열 저장:", err);
+            queueSubmission(payload);
         });
 
-        showToast("✅ 전송 완료되었습니다.");
-        // 제출 성공 시 해당 임시 저장 데이터 삭제
-        const draftKey = `KOMIPO_DRAFT_${currentState.selectedDept}_${currentState.selectedTask}`;
-        localStorage.removeItem(draftKey);
-
-        setTimeout(() => {
-            overlay.classList.remove('active');
-            location.reload();
-        }, 2000);
-
     } catch (error) {
-        console.warn("⚠️ 전송 실패:", error);
-        queueSubmission(payload);
-        overlay.classList.remove('active');
-        showToast("📂 오프라인 상태이거나 오류가 발생하여 내용을 로컬에 대기열에 저장했습니다.");
-        setTimeout(() => location.reload(), 2500);
+        console.error("❌ 제출 처리 중 오류:", error);
+        if (typeof showToast === 'function') showToast("❌ 제출 중 오류가 발생했습니다.");
+        if (overlay) overlay.classList.remove('active');
     }
 }
 

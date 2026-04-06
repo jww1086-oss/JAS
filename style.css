@@ -66,11 +66,18 @@ body {
 
 /* Status Indicator v25.1 - Real-time Network Watcher */
 .status-indicator {
-    display: flex; align-items: center; gap: 6px;
-    background: #f1f5f9; padding: 4px 12px; border-radius: 12px;
-    font-size: 0.65rem; font-weight: 900; color: #64748b;
-    margin-left: auto; margin-right: 15px;
-    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 2px !important;
 }
 .status-indicator .dot {
     width: 6px; height: 6px; border-radius: 50%;
@@ -500,3 +507,64 @@ body {
          visibility: hidden !important;
      }
  }
+
+/* [v30.1] Premium Success Animation */
+.success-animation-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.success-checkmark {
+    width: 100px;
+    height: 100px;
+    background: #10b981;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 30px;
+    box-shadow: 0 15px 35px rgba(16, 185, 129, 0.4);
+    animation: checkmarkScale 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transform: scale(0);
+}
+
+.success-checkmark i {
+    color: white;
+    width: 60px;
+    height: 60px;
+    stroke-width: 4px;
+}
+
+.success-title {
+    font-size: 1.8rem;
+    font-weight: 950;
+    color: #1e293b;
+    margin-bottom: 15px;
+    font-family: 'Outfit', sans-serif;
+}
+
+.success-desc {
+    font-size: 1rem;
+    color: #64748b;
+    line-height: 1.6;
+    margin-bottom: 40px;
+    font-weight: 500;
+}
+
+@keyframes checkmarkScale {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#step-success.active .success-animation-container {
+    animation: fadeIn 0.8s ease-out;
+}
