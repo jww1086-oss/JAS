@@ -1,5 +1,5 @@
 function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
-console.log("%c🚀 KOMIPO Smart Safety System v33.9.1-SYNC_MASTER Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
+console.log("%c🚀 KOMIPO Smart Safety System v33.9.4-SYNC_MASTER Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
@@ -751,8 +751,8 @@ function preparePreviewData() {
     
     const seenLogKeys = new Set();
     currentState.risks.forEach(risk => {
-        const hazardHash = getHash(risk.위험요인);
-        const stepName = risk.작업단계;
+        const hazardHash = getHash((risk.위험요인 || "").trim());
+        const stepName = (risk.작업단계 || "").trim();
         const stepHash = getHash(stepName);
         const key = `${taskHash}-${stepHash}-${hazardHash}`;
         
@@ -827,7 +827,19 @@ function preparePreviewData() {
         });
     });
 
-    return logs;
+    // 3. [v33.9.3] 최종 로그 중복 방지 - 비주얼 기반 완벽 필터링
+    const finalLogs = [];
+    const logSeen = new Set();
+    logs.forEach(l => {
+        const fingerPrint = `${l.작업명}-${l.작업단계}-${l.위험요인}`;
+        if (!logSeen.has(fingerPrint)) {
+            logSeen.add(fingerPrint);
+            finalLogs.push(l);
+        }
+    });
+
+    console.log(`✅ [v33.9.3] 미리보기 데이터 구성 완료 (${finalLogs.length}건)`);
+    return finalLogs;
 }
 
 function nextStep(step) {
@@ -979,7 +991,7 @@ function fetchJSONP(url) {
 }
 
 async function fetchInitialData() {
-    console.log("🚀 [v33.9.1-SYNC_MASTER] 하이브리드 동기화 가동...");
+    console.log("🚀 [v33.9.4-SYNC_MASTER] 하이브리드 동기화 가동...");
     updateNetworkStatus(false, '동기화 중');
 
     try {
