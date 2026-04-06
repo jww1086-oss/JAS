@@ -444,8 +444,6 @@ function startAssessment() {
     if (confirmArea) confirmArea.style.display = 'none';
     if (homeBtn) homeBtn.style.display = 'flex';
 
-    renderWorkers(); // [NEW] 점검자 명단 렌더링 호출
-
     switchPhase('step-1');
     renderDeptBanners();
 }
@@ -458,7 +456,7 @@ function renderDeptBanners() {
     if (!currentState.risks || currentState.risks.length === 0) {
         container.innerHTML = `
             <div style="padding: 3rem 1rem; text-align: center; color: #64748b; background: white; border-radius: 20px; border: 1px dashed #e2e8f0;">
-                <link rel="stylesheet" href="style.css?v=33.7.2">
+                <link rel="stylesheet" href="style.css?v=33.7.3">
                 <div class="loader-spinner" style="margin-bottom: 12px; font-size: 1.5rem; animation: spin 2s linear infinite;">🔄</div>
                 <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">데이터를 동기화하고 있습니다...</div>
                 <div style="font-size: 0.8rem; margin-top: 6px; opacity: 0.7;">3~5초 정도 소요될 수 있습니다.</div>
@@ -545,16 +543,6 @@ function handleStep1Back() {
         // 부서 선택 화면이라면 이전 페이즈(업무 선택)로 이동
         switchPhase('step-choice');
     }
-}
-
-function renderWorkers() {
-    const input = document.getElementById('worker-input');
-    const dropdown = document.getElementById('worker-dropdown');
-    if (!input || !dropdown) return;
-
-    setupCustomDropdown(input, dropdown, currentState.users.map(u => ({ value: u.name, sub: u.dept })), (val) => {
-        currentState.selectedWorker = val;
-    });
 }
 
 // --- History System Functions ---
@@ -2351,7 +2339,7 @@ function renderResultDeptCards() {
     if(breadcrumb) breadcrumb.style.display = 'none';
     if(detailViewer) detailViewer.style.display = 'none';
     if(emptyState) emptyState.style.display = 'none';
-    if(statusText) statusText.innerHTML = '<h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v33.7.1-FINAL</span></h1>';
+    if(statusText) statusText.innerHTML = '<h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v33.7.3-FINAL</span></h1>';
 
     const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
 
