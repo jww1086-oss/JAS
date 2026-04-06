@@ -91,18 +91,32 @@ function doPost(e) {
 
     if (params.logs && Array.isArray(params.logs)) {
       params.logs.forEach(log => {
-        const lastRow = logSheet.getLastRow() + 1;
-        logSheet.appendRow([
-          now, dept, task, worker, 
-          log.step_name || "", log.hazard || "", log.current_measures || "", log.improvements_checked || "",
-          log.current_frequency || 1, log.current_severity || 1, log.current_score || 1,
-          log.residual_frequency || 1, log.residual_severity || 1, log.residual_score || 1,
-          "", "" // 사진, 서명 자리는 비워두고 아래에서 삽입
-        ]);
+        // A~P (16컬럼) 매핑 (메모리.md v25.6 표준 준수)
+        var rowData = [
+            new Date(),             // A: 일시
+            params.department,      // B: 부서명
+            params.task,            // C: 작업명
+            params.worker,          // D: 점검자
+            log.step || "",         // E: 작업단계
+            log.hazard || "",       // F: 위험요인
+            log.current_measures || "", // G: 현재안전조치
+            log.improvements_checked || "", // H: 개선대책
+            log.current_frequency || "", // I: 현재_빈도
+            log.current_severity || "",  // J: 현재_강도
+            log.current_score || "",     // K: 현재_위험도
+            log.residual_frequency || "", // L: 잔류_빈도
+            log.residual_severity || "",  // M: 잔류_강도
+            log.residual_score || "",     // N: 잔류_위험도
+            "",                     // O: 사진URL (이미지 개체로 대체)
+            ""                      // P: 서명URL (이미지 개체로 대체)
+        ];
         
-        // 사진 및 서명 삽입 (마지막 로그에만 또는 매 로그에 삽입)
-        if (params.photo) insertImageSafe(logSheet, params.photo, lastRow, 15);
-        if (params.signature) insertImageSafe(logSheet, params.signature, lastRow, 16);
+        var lastRow = logSheet.getLastRow() + 1;
+        logSheet.appendRow(rowData);
+        
+        // 이미지 삽입 (O열: 사진, P열: 서명)
+        if (log.photo) insertImageSafe(logSheet, log.photo, lastRow, 15); // O열
+        if (params.signature) insertImageSafe(logSheet, params.signature, lastRow, 16); // P열
       });
     }
 
