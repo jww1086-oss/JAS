@@ -253,6 +253,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cachedRisks) {
             currentState.risks = JSON.parse(cachedRisks);
             console.log("⚡ 캐시된 위험성 데이터 즉시 로드 완료");
+            setTimeout(() => {
+                if (typeof showToast === 'function') {
+                    showToast("⚡ 초고속 모드: 데이터를 즉시 로드했습니다.");
+                }
+            }, 500); 
         }
         if (cachedUsers) {
             currentState.users = JSON.parse(cachedUsers);
