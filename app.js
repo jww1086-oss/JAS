@@ -1037,7 +1037,10 @@ async function fetchInitialData() {
     }
     
     if (currentState.risks.length > 0 && navigator.onLine) {
-        showToast("📱 구글 시트와 실시간 연결되었습니다.");
+        // [v33.4-ULTRA] 초고속 모드 알림이 먼저 충분히 보인 후 동기화 알림 표시
+        setTimeout(() => {
+            showToast("📱 구글 시트와 실시간 연결되었습니다.");
+        }, 3000); 
     }
 }
 
