@@ -964,74 +964,96 @@ function loadMockData() {
 }
 
 async function fetchInitialData() {
-    console.log("🚀 [v33.5] 초고속 병렬 동기화 시작...");
+    console.log("🚀 [v33.6-HYBRID] 하이브리드 동기화 시스템 가동...");
     updateNetworkStatus(false, '동기화 중');
 
     try {
-        // [v33.5] 핵심: 병렬 처리로 통신 시간 절반으로 절약
-        const [riskData, userData] = await Promise.all([
-            fetchGViz(MASTER_SHEET),
-            fetchGViz("평가자명단")
-        ]);
+        // [v33.6] 1단계: 초고속 GViz 엔진(JSONP) 선제 시도
+        try {
+            console.log("⚡ [Fast-Path] GViz 엔진 시도 중...");
+            const [riskData, userData] = await Promise.all([
+                fetchGViz(MASTER_SHEET),
+                fetchGViz("평가자명단")
+            ]);
+            
+            processRiskData(riskData);
+            processUserData(userData);
+            finalizeSync("✅ [Hyper] 구글 엔진 직통 동기화 완료");
+            return; // 성공 시 종료
 
-        // 1. 위험성 마스터 데이터 처리
-        if (riskData && riskData.length > 0) {
-            const allRisks = [];
-            riskData.forEach(item => {
-                // 시트 헤더명 유연하게 대응 (한글/영문)
-                const cleanedHazard = cleanValue(item.위험요인 || item.hazard || "");
-                const cleanedMeasures = cleanValue(item.현재안전조치 || item.current_measures || "");
-                const hazards = smartSplit(cleanedHazard);
-                const measures = smartSplit(cleanedMeasures);
-                
-                hazards.forEach(h => {
-                    allRisks.push({
-                        부서명: cleanValue(item.부서명 || item.dept || "미지정"),
-                        작업명: cleanValue(item.작업명 || item.task || "미정의 작업"),
-                        작업단계: cleanValue(item.작업단계 || item.step || "미정의 단계"),
-                        위험요인: h,
-                        개선대책: measures,
-                        // [v33.5] 메모리.md 16컬럼 지표 동기화 보강
-                        current_frequency: item.현재_빈도 || item.current_frequency || 1,
-                        current_severity: item.현재_강도 || item.current_severity || 1,
-                        current_score: item.현재_위험도 || item.current_score || 1
-                    });
-                });
-            });
-            currentState.risks = allRisks;
-            localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
-            renderDeptBanners();
-            console.log("✅ 실시간 위험성 마스터 로드 완료");
+        } catch (gvizError) {
+            console.warn("🛡️ [Fallback] 권한 제약으로 일반 통로(GAS)로 전환합니다:", gvizError.message);
+            
+            // [v33.6] 2단계: 보안 GAS 엔진(Legacy Path) 자동 전환
+            // fetchJSONP 대신 최신 fetch API를 비동기 호출
+            const params = new URLSearchParams({ type: 'master' });
+            const riskResponse = await fetch(`${GAS_URL}?${params.toString()}`, { redirect: 'follow' });
+            const riskData = await riskResponse.json();
+            
+            const userParams = new URLSearchParams({ type: 'users' });
+            const userResponse = await fetch(`${GAS_URL}?${userParams.toString()}`, { redirect: 'follow' });
+            const userData = await userResponse.json();
+
+            processRiskData(riskData);
+            processUserData(userData);
+            finalizeSync("✅ [Standard] 보안 앱스 서버를 통한 동기화 완료");
         }
-
-        // 2. 근로자 명단 데이터 처리
-        if (userData && userData.length > 0) {
-            currentState.users = userData.map(u => ({
-                이름: cleanValue(u.이름 || u.성명 || ""),
-                소속: cleanValue(u.소속 || u.부서명 || ""),
-                직책: cleanValue(u.직책 || ""),
-                경력: cleanValue(u.경력 || "")
-            }));
-            localStorage.setItem('kosha_cached_users', JSON.stringify(currentState.users));
-            renderWorkers();
-            console.log("✅ 실시간 근로자 명단 로드 성공");
-        }
-
-        updateNetworkStatus(true, '실시간 ON');
-        
-        // [v33.5] 초고속 모드 알림이 먼저 보인 후 동기화 알림 표시
-        setTimeout(() => {
-            showToast("📱 최신 데이터와 동기화되었습니다.");
-        }, 3000); 
 
     } catch (error) {
-        console.warn("⚠️ 실시간 동기화 지연 (캐시 모드 유지):", error);
-        // 동기화 실패 시에도 캐시가 있다면 UI를 유지하도록 설계됨
+        console.warn("⚠️ 최종 동기화 지연 (캐시 모드 유지):", error);
         if (currentState.risks.length === 0) {
             loadMockData();
             renderDeptBanners();
         }
     }
+}
+
+// 데이터 처리 공통 함수
+function processRiskData(riskData) {
+    if (!riskData || riskData.length === 0) return;
+    const allRisks = [];
+    riskData.forEach(item => {
+        const cleanedHazard = cleanValue(item.위험요인 || item.hazard || "");
+        const cleanedMeasures = cleanValue(item.현재안전조치 || item.current_measures || "");
+        const hazards = smartSplit(cleanedHazard);
+        const measures = smartSplit(cleanedMeasures);
+        
+        hazards.forEach(h => {
+            allRisks.push({
+                부서명: cleanValue(item.부서명 || item.dept || "미지정"),
+                작업명: cleanValue(item.작업명 || item.task || "미정의 작업"),
+                작업단계: cleanValue(item.작업단계 || item.step || "미정의 단계"),
+                위험요인: h,
+                개선대책: measures,
+                current_frequency: item.현재_빈도 || item.current_frequency || 1,
+                current_severity: item.현재_강도 || item.current_severity || 1,
+                current_score: item.현재_위험도 || item.current_score || 1
+            });
+        });
+    });
+    currentState.risks = allRisks;
+    localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
+    renderDeptBanners();
+}
+
+function processUserData(userData) {
+    if (!userData || userData.length === 0) return;
+    currentState.users = userData.map(u => ({
+        이름: cleanValue(u.이름 || u.성명 || ""),
+        소속: cleanValue(u.소속 || u.부서명 || ""),
+        직책: cleanValue(u.직책 || ""),
+        경력: cleanValue(u.경력 || "")
+    }));
+    localStorage.setItem('kosha_cached_users', JSON.stringify(currentState.users));
+    renderWorkers();
+}
+
+function finalizeSync(msg) {
+    console.log(msg);
+    updateNetworkStatus(true, '실시간 ON');
+    setTimeout(() => {
+        showToast("📱 최신 데이터와 동기화되었습니다.");
+    }, 3000); 
 }
 
 function renderDepartmentList() {
