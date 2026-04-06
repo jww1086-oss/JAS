@@ -458,6 +458,7 @@ function renderDeptBanners() {
     if (!currentState.risks || currentState.risks.length === 0) {
         container.innerHTML = `
             <div style="padding: 3rem 1rem; text-align: center; color: #64748b; background: white; border-radius: 20px; border: 1px dashed #e2e8f0;">
+                <link rel="stylesheet" href="style.css?v=33.7.1">
                 <div class="loader-spinner" style="margin-bottom: 12px; font-size: 1.5rem; animation: spin 2s linear infinite;">🔄</div>
                 <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">데이터를 동기화하고 있습니다...</div>
                 <div style="font-size: 0.8rem; margin-top: 6px; opacity: 0.7;">3~5초 정도 소요될 수 있습니다.</div>
@@ -1030,10 +1031,15 @@ function processRiskData(riskData) {
     if (!riskData || riskData.length === 0) return;
     const allRisks = [];
     riskData.forEach(item => {
-        // [v33.7.1] 구글 시트 헤더 매핑 정상화
-        const cleanedHazard = cleanValue(item.위험요인 || item.hazard || "");
-        const currentMeasuresStr = cleanValue(item.현재안전조치 || item.current_measures || "");
-        const improvementMeasuresStr = cleanValue(item.개선대책 || item.improvement_measures || "");
+        // [v33.7.1] 방어적 매핑(Defensive Mapping) 로직 추가
+        const getV = (obj, keys) => {
+            for(let k of keys) if(obj[k] !== undefined) return obj[k];
+            return "";
+        };
+
+        const cleanedHazard = cleanValue(getV(item, ["위험요인", "hazard"]) || "");
+        const currentMeasuresStr = cleanValue(getV(item, ["현재안전조치", "current_measures", "현재_안전조치"]) || "");
+        const improvementMeasuresStr = cleanValue(getV(item, ["개선대책", "improvement_measures", "개선_대책"]) || "");
         
         const hazards = smartSplit(cleanedHazard);
         const currentMeasures = smartSplit(currentMeasuresStr);
@@ -1041,15 +1047,15 @@ function processRiskData(riskData) {
         
         hazards.forEach(h => {
             allRisks.push({
-                부서명: cleanValue(item.부서명 || item.dept || "미지정"),
-                작업명: cleanValue(item.작업명 || item.task || "미정의 작업"),
-                작업단계: cleanValue(item.작업단계 || item.step || "미정의 단계"),
+                부서명: cleanValue(getV(item, ["부서명", "dept"]) || "미지정"),
+                작업명: cleanValue(getV(item, ["작업명", "task"]) || "미정의 작업"),
+                작업단계: cleanValue(getV(item, ["작업단계", "step"]) || "미정의 단계"),
                 위험요인: h,
-                current_measures: currentMeasures,      // [정상 매핑] 현재안전조치
-                improvement_measures: improvementMeasures, // [신규 매핑] 개선대책
-                current_frequency: item.현재_빈도 || item.current_frequency || 1,
-                current_severity: item.현재_강도 || item.current_severity || 1,
-                current_score: item.현재_위험도 || item.current_score || 1
+                current_measures: currentMeasures,
+                improvement_measures: improvementMeasures,
+                current_frequency: getV(item, ["현재_빈도", "current_frequency"]) || 1,
+                current_severity: getV(item, ["현재_강도", "current_severity"]) || 1,
+                current_score: getV(item, ["현재_위험도", "current_score"]) || 1
             });
         });
     });
@@ -2338,7 +2344,7 @@ function renderResultDeptCards() {
     if(breadcrumb) breadcrumb.style.display = 'none';
     if(detailViewer) detailViewer.style.display = 'none';
     if(emptyState) emptyState.style.display = 'none';
-    if(statusText) statusText.innerText = "최근 점검 기록을 부서별로 조회합니다.";
+    if(statusText) statusText.innerHTML = '<h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v33.7.1-FINAL</span></h1>';
 
     const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
 
