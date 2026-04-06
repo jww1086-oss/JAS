@@ -1,5 +1,5 @@
 function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
-console.log("%c🚀 KOMIPO Smart Safety System v33.3-ULTIMATE Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
+console.log("%c🚀 KOMIPO Smart Safety System v33.4-ULTRA Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
