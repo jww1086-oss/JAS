@@ -1,5 +1,5 @@
 function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
-console.log("%c🚀 KOMIPO Smart Safety System v33.4-ULTRA Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
+console.log("%c🚀 KOMIPO Smart Safety System v33.9.0-SYNC_MASTER Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
@@ -211,7 +211,7 @@ async function fetchData(url) {
 function fetchGViz(sheetName) {
     return new Promise((resolve, reject) => {
         const callbackName = 'gviz_cb_' + Math.round(100000 * Math.random());
-        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=${encodeURIComponent(sheetName)}`;
+        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
         
         window[callbackName] = (data) => {
             delete window[callbackName];
@@ -975,7 +975,7 @@ function fetchJSONP(url) {
 }
 
 async function fetchInitialData() {
-    console.log("🚀 [v33.6.1-HYBRID] 하이브리드 동기화 가동...");
+    console.log("🚀 [v33.9.0-SYNC_MASTER] 하이브리드 동기화 가동...");
     updateNetworkStatus(false, '동기화 중');
 
     try {
