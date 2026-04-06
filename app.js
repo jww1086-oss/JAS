@@ -246,9 +246,23 @@ function fetchJSONP(url) {
 let signaturePad;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // [v33.4] 초고속 초기 로딩 시스템: 캐시된 마스터 데이터 즉시 복원
+    try {
+        const cachedRisks = localStorage.getItem('kosha_cached_risks');
+        const cachedUsers = localStorage.getItem('kosha_cached_users');
+        if (cachedRisks) {
+            currentState.risks = JSON.parse(cachedRisks);
+            console.log("⚡ 캐시된 위험성 데이터 즉시 로드 완료");
+        }
+        if (cachedUsers) {
+            currentState.users = JSON.parse(cachedUsers);
+            console.log("⚡ 캐시된 근로자 명단 즉시 로드 완료");
+        }
+    } catch (e) { console.error("Cache load error:", e); }
+
     initLucide();
     initEventListeners();
-    fetchInitialData();
+    fetchInitialData(); // 백그라운드 최적화 동기화
     updateDate();
     setInterval(updateDate, 60000);
 
