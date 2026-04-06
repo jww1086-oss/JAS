@@ -456,7 +456,7 @@ function renderDeptBanners() {
     if (!currentState.risks || currentState.risks.length === 0) {
         container.innerHTML = `
             <div style="padding: 3rem 1rem; text-align: center; color: #64748b; background: white; border-radius: 20px; border: 1px dashed #e2e8f0;">
-                <link rel="stylesheet" href="style.css?v=33.7.3">
+                <link rel="stylesheet" href="style.css?v=33.8.0">
                 <div class="loader-spinner" style="margin-bottom: 12px; font-size: 1.5rem; animation: spin 2s linear infinite;">🔄</div>
                 <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">데이터를 동기화하고 있습니다...</div>
                 <div style="font-size: 0.8rem; margin-top: 6px; opacity: 0.7;">3~5초 정도 소요될 수 있습니다.</div>
@@ -498,14 +498,16 @@ function renderTaskBanners(dept) {
     const container = document.getElementById('selection-container');
     if (!container) return;
     
-    const tasks = [...new Set(currentState.risks.filter(r => r.부서명 === dept).map(r => r.작업명))];
+    const rawTasks = [...new Set(currentState.risks.filter(r => r.부서명 === dept).map(r => r.작업명))];
+    const tasks = rawTasks.filter(Boolean).sort(); // 가나다 순 정렬 확정
     
-    // [v33.7] 초슬림 그리드로 변경하여 스크롤 최소화 및 누락 방지
+    // [v33.8.0-PRO] 1열 그리드로 변경하여 가독성 극대화 (카드형)
     container.innerHTML = `
         <div class="compact-task-grid">
             ${tasks.map(task => `
                 <div class="compact-task-item" onclick="selectAssessmentTask('${task}')">
                     <div class="title">${task}</div>
+                    <i data-lucide="chevron-right"></i>
                 </div>
             `).join('')}
         </div>
@@ -1023,11 +1025,17 @@ function processRiskData(riskData) {
         const getV = (obj, keys) => {
             // 1. 직접 매칭 (가장 빠름)
             for(let k of keys) if(obj[k] !== undefined) return obj[k];
-            // 2. 유연한 매칭 (대소문자, 공백, 언더바 무시)
-            const norm = s => String(s).toLowerCase().replace(/[\s_]/g, '');
+            
+            // 2. 공격적인 정규식 매칭 (공백, 언더바, 특수문자 제거 후 부분 일치 포함)
+            const norm = s => String(s).replace(/[\s\_\-\[\]\(\)]/g, '').toLowerCase();
             const normKeys = keys.map(norm);
+            
             for(let key in obj) {
-                if(normKeys.includes(norm(key))) return obj[key];
+                const nKey = norm(key);
+                for(let nk of normKeys) {
+                    // 키값이 포함되어 있거나(startsWith/includes) 정규화된 값이 일치하면 인정
+                    if(nKey.includes(nk) || nk.includes(nKey)) return obj[key];
+                }
             }
             return "";
         };
@@ -1458,23 +1466,44 @@ function renderRiskChecklist(stepName) {
                         </p>
                     
                         <ul class="measure-list improvement" style="margin-bottom: 1rem;">
-                            ${(r.improvement_measures || []).map((m, mi) => {
-                                const mKey = `${key}-im-${mi}`; // [주의] 개선대책 전용 키 생성
-                                const isMImproved = currentState.improvedMeasures.has(mKey);
+                            ${(() => {
+                                const currentMeasures = r.current_measures || [];
+                                const improvementMeasures = r.improvement_measures || [];
+                                // 두 리스트 중 더 긴 것을 기준으로 순회 (보통 1:1 매칭)
+                                const maxLen = Math.max(currentMeasures.length, improvementMeasures.length);
+                                let hasVisibleImprovement = false;
                                 
-                                return `
-                                    <li class="measure-item ${isMImproved ? 'improved' : ''}" 
-                                        onclick="toggleMeasureByHash('${mKey}', 'improve', '${stepName}', event)"
-                                        style="transition: all 0.3s ease; cursor: pointer; border-radius: 12px; margin-bottom: 6px;">
-                                        <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}">
-                                            <i data-lucide="check"></i>
-                                        </div>
-                                        <span style="flex: 1; font-size: 0.95rem; font-weight: 500; color: #334155;">${m}</span>
-                                    </li>
-                                `;
-                            }).join('')}
-                            ${(r.improvement_measures || []).length === 0 ? 
-                                `<li style="text-align:center; padding:15px; color:#94a3b8; font-size:0.85rem; background:#f8fafc; border-radius:12px; border:1px dashed #e2e8f0;">✅ 등록된 표준 개선대책이 없습니다.</li>` : ''}
+                                const listHTML = Array.from({length: maxLen}).map((_, mi) => {
+                                    const cKey = `${key}-m-${mi}`;
+                                    const mKey = `${key}-im-${mi}`;
+                                    
+                                    // [핵심] 현재안전조치가 체크되어 있다면 개선대책에서 숨김
+                                    if (currentState.checkedMeasures.has(cKey)) return '';
+                                    
+                                    // 개선대책 문구 결정: 지정된 대책이 없으면 현재 대책 문구를 폴백으로 사용
+                                    const mText = (improvementMeasures[mi] && improvementMeasures[mi].trim() !== "") 
+                                        ? improvementMeasures[mi] 
+                                        : currentMeasures[mi];
+                                        
+                                    if (!mText || mText.trim() === "") return '';
+                                    
+                                    hasVisibleImprovement = true;
+                                    const isMImproved = currentState.improvedMeasures.has(mKey);
+
+                                    return `
+                                        <li class="measure-item ${isMImproved ? 'improved' : ''}" 
+                                            onclick="toggleMeasureByHash('${mKey}', 'improve', '${stepName.replace(/'/g, "\\'")}', event)"
+                                            style="transition: all 0.3s ease; cursor: pointer; border-radius: 12px; margin-bottom: 8px; border: 1px solid #fecaca; background: #fff5f5; padding: 12px 14px; display: flex; align-items: center; gap: 10px;">
+                                            <div class="m-checkbox ${isMImproved ? 'active-improve' : ''}">
+                                                <i data-lucide="check"></i>
+                                            </div>
+                                            <span style="flex: 1; font-size: 1.05rem; font-weight: 800; color: #b91c1c;">${mText}</span>
+                                        </li>
+                                    `;
+                                }).join('');
+
+                                return hasVisibleImprovement ? listHTML : `<li style="text-align:center; padding:15px; color:#94a3b8; font-size:0.85rem; background:#f8fafc; border-radius:12px; border:1px dashed #e2e8f0;">✅ 모든 조치가 이행 중이거나 추가 대책이 필요 없습니다.</li>`;
+                            })()}
                         </ul>
 
                         <div class="manual-input-area" style="margin-bottom: 1rem;">
@@ -1658,12 +1687,12 @@ function renderRiskChecklist(stepName) {
                         <div style="margin-top: 1.5rem; display: flex; align-items: center; justify-content: space-between; background: rgba(254, 242, 242, 0.5); padding: 1.25rem; border-radius: 20px; border: 1.5px solid rgba(244, 63, 94, 0.1);">
                             <span style="font-weight: 800; color: var(--doing-accent); font-size: 0.9rem; font-family: 'Outfit', sans-serif;">개선 후 잔류위험</span>
                             <div class="matrix-row-unified" style="margin: 0; display: flex; align-items: center; gap: 8px;">
-                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'severity', this.value)"
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName.replace(/'/g, "\\'")}', 'residual', 'severity', this.value)"
                                         style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
                                 <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4);">×</span>
-                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'frequency', this.value)"
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName.replace(/'/g, "\\'")}', 'residual', 'frequency', this.value)"
                                         style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.frequency == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
@@ -2174,7 +2203,7 @@ async function submitLog() {
             
         return {
             department: currentState.selectedDept,
-            task_name: currentState.selectedTask,
+            작업명: currentState.selectedTask,
             step_name: r.작업단계 || currentState.selectedStep,
             hazard: r.위험요인,
             current_measures: currentChecked || "진행 중",
@@ -2219,7 +2248,7 @@ async function submitLog() {
     const payload = {
         worker: workerNames,
         department: currentState.selectedDept,
-        task: currentState.selectedTask,
+        작업명: currentState.selectedTask,
         step: currentState.selectedStep,
         logs: logs,
         improvement_plan: improvementPlan, 
@@ -2383,7 +2412,8 @@ function selectResultDept(dept) {
     filteredLogs.forEach(log => {
         const date = log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상";
         const worker = log.점검자 || log.평가자 || "미지정";
-        const key = `${date}|${log.작업명 || "내용 없음"}|${worker}`;
+        const taskName = log.작업명 || log.task_name || log.task || "내용 없음";
+        const key = `${date}|${taskName}|${worker}`;
         if (!taskGroups[key]) taskGroups[key] = [];
         taskGroups[key].push(log);
     });
@@ -2423,8 +2453,9 @@ function showResultDetailByGroup(groupKey) {
     const filtered = currentState.allLogs.filter(log => {
         const logDate = log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상";
         const logWorker = log.점검자 || log.평가자 || "미지정";
+        const logTask = log.작업명 || log.task_name || log.task || "내용 없음";
         return (log.부서명 || log.소속) === currentState.currentResultDept && 
-               log.작업명 === task && 
+               logTask === task && 
                logWorker === worker &&
                logDate === date;
     });
@@ -2499,8 +2530,8 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
         </div>
 
         <div style="background: #f8fafc; padding: 20px; border-radius: 20px; border: 1.5px solid #e2e8f0; margin-bottom: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.9rem;">
-            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">부서명:</span> <span style="color: #1e293b; font-weight: 800;">${first.부서명 || first.소속 || "미지정"}</span></div>
-            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">작업명:</span> <span style="color: #1e293b; font-weight: 800;">${first.작업명 || "내용 없음"}</span></div>
+            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">부서명:</span> <span style="color: #1e293b; font-weight: 800;">${first.부서명 || first.소속 || currentState.selectedDept || "미지정"}</span></div>
+            <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">작업명:</span> <span style="color: #1e293b; font-weight: 800;">${first.작업명 || first.task_name || first.task || currentState.selectedTask || "내용 없음"}</span></div>
             <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">점검자:</span> <span style="color: #1e293b; font-weight: 800;">${first.점검자 || first.평가자 || "미지정"}</span></div>
             <div><span style="color: #64748b; font-weight: 700; margin-right: 8px;">${isPreview ? '평가일자' : '조회일시'}:</span> <span style="color: #1e293b; font-weight: 800;">${isPreview ? today : (first.일시 ? new Date(first.일시).toLocaleDateString() : today)}</span></div>
         </div>

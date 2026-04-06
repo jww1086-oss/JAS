@@ -29,23 +29,30 @@
     <!-- PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <link rel="stylesheet" href="style.css?v=33.7.3">
+    <link rel="stylesheet" href="style.css?v=34.0.1">
 </head>
 <body>
+
     <div class="app-shell">
         <div class="mobile-frame">
-            <!-- Header -->
+            <!-- Header (Full Restoration v34.0.2) -->
             <header class="doing-header">
-                <div class="logo-area">
-                    <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v33.7.3-FINAL</span></h1>
-                    <p style="font-size: 0.85rem; font-weight: 700; color: #64748b; margin-top: -2px;">한국중부발전</p>
+                <!-- Sync Loader Bar -->
+                <div id="sync-status-area" class="sync-status-area">
+                    <div id="sync-progress-bar" class="sync-progress-bar"></div>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                    <div id="network-status" class="status-indicator" style="margin: 0; padding: 2px 8px;">
-                        <span class="dot"></span>
-                        <span class="status-text">실시간 ON</span>
+                
+                <div class="logo-area" style="margin-left: -20px;">
+                    <h1 class="logo-main">KOMIPO <span class="header-v-label">v34.0.20</span></h1>
+                    <p class="logo-sub">한국중부발전</p>
+                </div>
+                
+                <div class="status-panel" style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <div class="header-date" style="font-size: 1.1rem; font-weight: 850; color: #94a3b8; letter-spacing: -0.5px;">2026.04.06 MON</div>
+                    <div id="status-indicator" class="status-indicator online">
+                        <div class="dot"></div>
+                        <span id="status-text">ONLINE</span>
                     </div>
-                    <div id="current-date" class="header-date" style="color: #94a3b8; font-size: 0.7rem; font-weight: 500;"></div>
                 </div>
             </header>
 
@@ -250,6 +257,97 @@
                 </div>
 
                 <div class="certification-card" style="background: white; border-radius: 28px; padding: 1.75rem; border: 1.5px solid #f1f5f9; box-shadow: var(--shadow-lg); margin-bottom: 2rem; border-top: 6px solid var(--doing-indigo);">
+                    <style>
+                        .color-purple { background: #faf5ff; color: #a855f7 !important; }
+                        .color-orange { background: #fff7ed; color: #f97316 !important; }
+                        .color-red { background: #fef2f2; color: #ef4444 !important; }
+                        .color-gold { background: #fffbeb; color: #f59e0b !important; }
+                        .doing-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1.2rem 20px; /* Restored to perfect alignment with cards */
+    margin-bottom: 0;
+    position: sticky; top: 0; z-index: 1100;
+    width: calc(100% + 40px); margin: 0 -20px 0 -20px;
+    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px);
+    border-bottom: 1.5px solid #f1f5f9;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.03), 0 4px 6px -4px rgba(0, 0, 0, 0.02);
+}
+                        .logo-area {
+                            display: flex; flex-direction: column; gap: 2px;
+                            align-items: flex-start; margin: 0; padding: 0;
+                        }
+                        .logo-main {
+                            font-family: 'Outfit', sans-serif;
+                            font-size: 2.4rem; /* Adjusted to be 'large' but not 'too big' */
+                            font-weight: 950;
+                            color: var(--doing-blue); letter-spacing: -1.5px;
+                            margin: 0 !important; padding: 0 !important; line-height: 1.1;
+                        }
+                        .logo-sub {
+                            font-size: 1.4rem; /* Adjusted to be 'large' but not 'too big' */
+                            font-weight: 900; color: #475569;
+                            margin: 0 !important; padding: 0 !important;
+                            letter-spacing: -0.5px;
+                        }
+                        .grid-card span {
+                            font-size: 1.05rem; /* Enlarged for better legibility */
+                            font-weight: 800;
+                            color: #1e293b;
+                            line-height: 1.2;
+                            letter-spacing: -0.6px;
+                            text-align: center;
+                        }
+                        .grid-card {
+                            background: #ffffff;
+                            border: 1.5px solid #f1f5f9;
+                            border-radius: 24px;
+                            padding: 24px 10px;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bouncy smooth transition */
+                            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+                            cursor: pointer;
+                            position: relative;
+                            overflow: hidden;
+                        }
+                        .grid-card:hover {
+                            transform: translateY(-8px) scale(1.03);
+                            border-color: #0ea5e9 !important;
+                            box-shadow: 0 20px 40px rgba(14, 165, 233, 0.15);
+                            background: #fbfdff;
+                        }
+                        .grid-card:hover .icon-box {
+                            transform: scale(1.1) rotate(5deg);
+                            filter: brightness(1.1);
+                        }
+                        .grid-card:active { transform: scale(0.95); }
+                        .grid-card .icon-box {
+                            width: 50px; height: 50px; border-radius: 16px;
+                            display: flex; align-items: center; justify-content: center;
+                            margin-bottom: 8px;
+                            transition: all 0.3s ease;
+                        }
+                        /* 개선대책 컬러 로직: 안전조치와 동일하게 시작하며 클릭시만 빨간색 */
+                        .measure-list.improvement .measure-item {
+                            border: 1.5px solid #f1f5f9 !important;
+                            background: #ffffff !important;
+                            color: #1e293b !important; /* 기본은 무조건 검정 */
+                            transition: all 0.2s ease;
+                        }
+                        .measure-list.improvement .measure-item.improved {
+                            border-color: #fecaca !important;
+                            background: #fff5f5 !important;
+                            color: #ef4444 !important; /* 클릭 시에만 빨간색 */
+                        }
+                        .measure-list.improvement .measure-item.improved .m-checkbox.active-improve {
+                            background: #ef4444 !important;
+                            border-color: #ef4444 !important;
+                        }
+                        .measure-list.improvement .measure-item span { color: inherit !important; font-weight: 500 !important; }
+                        .measure-list.improvement .measure-item.improved span { font-weight: 600 !important; }
+                    </style>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
                         <span style="font-size: 0.95rem; font-weight: 900; color: #1e293b; display: flex; align-items: center; gap: 8px;">
                             <i data-lucide="pen-tool" style="width:20px; color: var(--doing-indigo);"></i> 점검자 본인 확인 서명
@@ -459,8 +557,8 @@
         <div class="loader"></div>
     </div>
 
-    <script src="app.js?v=33.7.3"></script>
-    <script src="tbm.js?v=33.7.3"></script>
+    <script src="app.js?v=33.9.0"></script>
+    <script src="tbm.js?v=33.9.0"></script>
 
 </body>
 </html>
