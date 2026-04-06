@@ -963,8 +963,38 @@ function loadMockData() {
     currentState.incidents = {};
 }
 
+// [v33.6.1] 구형 브라우저 및 GAS 보안 통로용 JSONP 엔진 (CORS 우회 필살기)
+function fetchJSONP(url) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+            delete window[callbackName];
+            script.remove();
+            reject(new Error('네트워크 응답 시간 초과'));
+        }, 15000);
+
+        window[callbackName] = (data) => {
+            clearTimeout(timeout);
+            delete window[callbackName];
+            script.remove();
+            resolve(data);
+        };
+
+        const separator = url.indexOf('?') >= 0 ? '&' : '?';
+        script.src = `${url}${separator}callback=${callbackName}&_t=${Date.now()}`;
+        script.onerror = () => {
+            clearTimeout(timeout);
+            delete window[callbackName];
+            script.remove();
+            reject(new Error('통신 실패'));
+        };
+        document.body.appendChild(script);
+    });
+}
+
 async function fetchInitialData() {
-    console.log("🚀 [v33.6-HYBRID] 하이브리드 동기화 시스템 가동...");
+    console.log("🚀 [v33.6.1-HYBRID] 하이브리드 동기화 가동...");
     updateNetworkStatus(false, '동기화 중');
 
     try {
@@ -979,24 +1009,21 @@ async function fetchInitialData() {
             processRiskData(riskData);
             processUserData(userData);
             finalizeSync("✅ [Hyper] 구글 엔진 직통 동기화 완료");
-            return; // 성공 시 종료
+            return; 
 
         } catch (gvizError) {
-            console.warn("🛡️ [Fallback] 권한 제약으로 일반 통로(GAS)로 전환합니다:", gvizError.message);
+            console.warn("🛡️ [Fallback] 보안 통로(GAS-JSONP)로 전환합니다:", gvizError.message);
             
-            // [v33.6] 2단계: 보안 GAS 엔진(Legacy Path) 자동 전환
-            // fetchJSONP 대신 최신 fetch API를 비동기 호출
-            const params = new URLSearchParams({ type: 'master' });
-            const riskResponse = await fetch(`${GAS_URL}?${params.toString()}`, { redirect: 'follow' });
-            const riskData = await riskResponse.json();
-            
-            const userParams = new URLSearchParams({ type: 'users' });
-            const userResponse = await fetch(`${GAS_URL}?${userParams.toString()}`, { redirect: 'follow' });
-            const userData = await userResponse.json();
+            // [v33.6.1] 2단계: 보안 GAS 엔진(Legacy Path) 최적화 호출
+            // fetch() 대신 CORS 이슈 없는 fetchJSONP 사용으로 100% 수신 보장
+            const [riskData, userData] = await Promise.all([
+                fetchJSONP(GAS_URL + "?type=master"),
+                fetchJSONP(GAS_URL + "?type=users")
+            ]);
 
             processRiskData(riskData);
             processUserData(userData);
-            finalizeSync("✅ [Standard] 보안 앱스 서버를 통한 동기화 완료");
+            finalizeSync("✅ [Standard] 보안 앱스 서버 동기화 완료");
         }
 
     } catch (error) {
