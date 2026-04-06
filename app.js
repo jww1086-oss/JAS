@@ -193,59 +193,46 @@ function getHash(str) {
     return Math.abs(hash).toString(16);
 }
 
-function fetchJSONP(url) {
-    // [v26.2] 불필요한 '통신 대기' 텍스트 제거 (사용자 요청 반영)
-    const indicator = document.getElementById('network-status');
-    if (indicator && !indicator.classList.contains('online')) {
-        updateNetworkStatus(false, '실시간 연결 중');
+const SPREADSHEET_ID = "1_qLqeCtpr8D66oj7TjNwqvvUNa4xU7m_QVpdyzKryeE";
+
+// [v33.5] 초고속 데이터 통신 엔진 (Fetch API + Google Visualization API)
+async function fetchData(url) {
+    try {
+        const response = await fetch(url, { redirect: 'follow' });
+        if (!response.ok) throw new Error('네트워크 응답 오류');
+        return await response.json();
+    } catch (e) {
+        console.error("Fetch Data Error:", e);
+        throw e;
     }
-    
-    return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-        const script = document.createElement('script');
-        
-        // 타임아웃을 20초로 확장하여 안정성 확보 (v25.7.1)
-        const timeout = setTimeout(() => {
-            delete window[callbackName];
-            if (script.parentNode) document.body.removeChild(script);
-            // [v26.1] 이미 성공한 적이 있다면 지연 메시지로 불안감을 주지 않음
-            if (indicator && !indicator.classList.contains('online')) {
-                updateNetworkStatus(false, '연결 지연');
-            }
-            reject(new Error('네트워크 응답 시간 초과'));
-        }, 20000); 
-
-        window[callbackName] = (data) => {
-            clearTimeout(timeout);
-            delete window[callbackName];
-            if (script.parentNode) document.body.removeChild(script);
-            // [STICKY] 일단 한번이라도 성공하면 '실시간 ON'을 강력 유지
-            updateNetworkStatus(true, '실시간 ON'); 
-            resolve(data);
-        };
-
-        script.onerror = () => {
-            clearTimeout(timeout);
-            delete window[callbackName];
-            if (script.parentNode) document.body.removeChild(script);
-            // 일시적 소음은 무시하고, 상점 상태가 아닐때만 표시
-            if (indicator && !indicator.classList.contains('online')) {
-                updateNetworkStatus(false, '접속 지연');
-            } else {
-                console.warn("[v26.1] 일시적 통신 피드백 무시 (ON 유지)");
-            }
-            reject(new Error('JSONP fetch failed'));
-        };
-
-        const separator = url.indexOf('?') >= 0 ? '&' : '?';
-        const timestamp = new Date().getTime();
-        script.src = `${url}${separator}callback=${callbackName}&_t=${timestamp}`;
-        document.body.appendChild(script);
-    });
 }
+
+// [v33.5] 구글 시트 고속 읽기 전용 엔진 (GViz) - 가장 짧은 시간 내 데이터 로드
+async function fetchGViz(sheetName) {
+    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+    try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+        const json = JSON.parse(jsonStr);
+        
+        const cols = json.table.cols.map(c => (c.label || "").trim());
+        return json.table.rows.map(row => {
+            let obj = {};
+            row.c.forEach((cell, i) => {
+                if (cols[i]) obj[cols[i]] = cell ? (cell.v !== null ? cell.v : "") : "";
+            });
+            return obj;
+        });
+    } catch (e) {
+        console.error(`GViz Fetch Error (${sheetName}):`, e);
+        throw e;
+    }
+}
+
 let signaturePad;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // [v33.4] 초고속 초기 로딩 시스템: 캐시된 마스터 데이터 즉시 복원
     try {
         const cachedRisks = localStorage.getItem('kosha_cached_risks');
@@ -267,7 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initLucide();
     initEventListeners();
-    fetchInitialData(); // 백그라운드 최적화 동기화
+    
+    // [v33.5] 최단 시간 연동: 병렬 고속 동기화 시작
+    fetchInitialData(); 
     updateDate();
     setInterval(updateDate, 60000);
 
@@ -959,64 +948,48 @@ function loadMockData() {
 }
 
 async function fetchInitialData() {
-    console.log("⏳ 구글 시트 데이터 실시간 동기화 시도 중...");
-    
-    // 1. 위험성_마스터 데이터 가져오기 (독립적 처리)
+    console.log("🚀 [v33.5] 초고속 병렬 동기화 시작...");
+    updateNetworkStatus(false, '동기화 중');
+
     try {
-        const riskData = await fetchJSONP(GAS_URL);
-        if (Array.isArray(riskData)) {
+        // [v33.5] 핵심: 병렬 처리로 통신 시간 절반으로 절약
+        const [riskData, userData] = await Promise.all([
+            fetchGViz(MASTER_SHEET),
+            fetchGViz("평가자명단")
+        ]);
+
+        // 1. 위험성 마스터 데이터 처리
+        if (riskData && riskData.length > 0) {
             const allRisks = [];
-            if (riskData.length > 0) {
-                riskData.forEach(item => {
-                    const cleanedHazard = cleanValue(item.위험요인 || "내용 없음");
-                    const cleanedMeasures = cleanValue(item.현재안전조치_이행내역 || item.현재안전조치 || "");
-                    const hazards = smartSplit(cleanedHazard);
-                    const measures = smartSplit(cleanedMeasures);
-                    
-                    hazards.forEach(h => {
-                        allRisks.push({
-                            부서명: cleanValue(item.부서명 || item.소속 || "미지정"),
-                            작업명: cleanValue(item.작업명 || "미정의 작업"),
-                            작업단계: cleanValue(item.작업단계 || "미정의 단계"),
-                            위험요인: h,
-                            개선대책: measures
-                        });
+            riskData.forEach(item => {
+                // 시트 헤더명 유연하게 대응 (한글/영문)
+                const cleanedHazard = cleanValue(item.위험요인 || item.hazard || "");
+                const cleanedMeasures = cleanValue(item.현재안전조치 || item.current_measures || "");
+                const hazards = smartSplit(cleanedHazard);
+                const measures = smartSplit(cleanedMeasures);
+                
+                hazards.forEach(h => {
+                    allRisks.push({
+                        부서명: cleanValue(item.부서명 || item.dept || "미지정"),
+                        작업명: cleanValue(item.작업명 || item.task || "미정의 작업"),
+                        작업단계: cleanValue(item.작업단계 || item.step || "미정의 단계"),
+                        위험요인: h,
+                        개선대책: measures,
+                        // [v33.5] 메모리.md 16컬럼 지표 동기화 보강
+                        current_frequency: item.현재_빈도 || item.current_frequency || 1,
+                        current_severity: item.현재_강도 || item.current_severity || 1,
+                        current_score: item.현재_위험도 || item.current_score || 1
                     });
                 });
-                currentState.risks = allRisks;
-                localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
-                console.log("✅ 실시간 위험성 마스터 로드 완료:", allRisks.length, "건");
-            } else {
-                console.warn("⚠️ 시트 데이터가 비어있습니다.");
-                currentState.risks = [];
-            }
-            
-            // 데이터 유무와 상관없이 UI 업데이트 시도 (로딩 화면 해제)
+            });
+            currentState.risks = allRisks;
+            localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
             renderDeptBanners();
-        } else if (riskData && riskData.status === "error") {
-            console.error("❌ GAS 에러 응답:", riskData.message);
-            showToast("❌ 서버 에러: " + riskData.message);
-            loadMockData();
-            renderDeptBanners();
+            console.log("✅ 실시간 위험성 마스터 로드 완료");
         }
-    } catch (error) {
-        console.warn("⚠️ 위험성 데이터 로드 실패, 캐시된 데이터를 확인합니다:", error);
-        const cached = localStorage.getItem('kosha_cached_risks');
-        if (cached) {
-            currentState.risks = JSON.parse(cached);
-            console.log("📂 로컬 캐시 데이터 로드 완료:", currentState.risks.length, "건");
-            renderDeptBanners();
-            showToast("📡 오프라인 모드: 기존 점검 데이터를 사용합니다.");
-        } else if (currentState.risks.length === 0) {
-            loadMockData();
-            renderDeptBanners();
-        }
-    }
 
-    // 2. 사용자명단 데이터 가져오기 (독립적 처리)
-    try {
-        const userData = await fetchJSONP(GAS_URL + "?type=users");
-        if (Array.isArray(userData) && userData.length > 0) {
+        // 2. 근로자 명단 데이터 처리
+        if (userData && userData.length > 0) {
             currentState.users = userData.map(u => ({
                 이름: cleanValue(u.이름 || u.성명 || ""),
                 소속: cleanValue(u.소속 || u.부서명 || ""),
@@ -1025,22 +998,23 @@ async function fetchInitialData() {
             }));
             localStorage.setItem('kosha_cached_users', JSON.stringify(currentState.users));
             renderWorkers();
-            console.log("✅ 실시간 근로자 명단 로드 성공:", currentState.users.length, "건");
+            console.log("✅ 실시간 근로자 명단 로드 성공");
         }
-    } catch (error) {
-        const cachedUsers = localStorage.getItem('kosha_cached_users');
-        if (cachedUsers) {
-            currentState.users = JSON.parse(cachedUsers);
-            renderWorkers();
-        }
-        console.warn("⚠️ 근로자 명단 로드 실패 (캐시 사용 시도)");
-    }
-    
-    if (currentState.risks.length > 0 && navigator.onLine) {
-        // [v33.4-ULTRA] 초고속 모드 알림이 먼저 충분히 보인 후 동기화 알림 표시
+
+        updateNetworkStatus(true, '실시간 ON');
+        
+        // [v33.5] 초고속 모드 알림이 먼저 보인 후 동기화 알림 표시
         setTimeout(() => {
-            showToast("📱 구글 시트와 실시간 연결되었습니다.");
+            showToast("📱 최신 데이터와 동기화되었습니다.");
         }, 3000); 
+
+    } catch (error) {
+        console.warn("⚠️ 실시간 동기화 지연 (캐시 모드 유지):", error);
+        // 동기화 실패 시에도 캐시가 있다면 UI를 유지하도록 설계됨
+        if (currentState.risks.length === 0) {
+            loadMockData();
+            renderDeptBanners();
+        }
     }
 }
 
@@ -2226,7 +2200,7 @@ async function openResultsView() {
     }
     
     try {
-        const response = await fetchJSONP(GAS_URL + "?type=logs");
+        const response = await fetchGViz("위험성평가실시");
         const drafts = typeof loadDrafts === 'function' ? loadDrafts() : []; 
         
         let allLogs = [];
