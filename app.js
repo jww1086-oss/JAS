@@ -1,5 +1,5 @@
 function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
-console.log("%c🚀 KOMIPO Smart Safety System v33.9.0-SYNC_MASTER Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
+console.log("%c🚀 KOMIPO Smart Safety System v33.9.1-SYNC_MASTER Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
@@ -749,6 +749,7 @@ function preparePreviewData() {
     // 1. 표준 위험요인 처리
     const taskHash = getHash(currentState.selectedTask || "");
     
+    const seenLogKeys = new Set();
     currentState.risks.forEach(risk => {
         const hazardHash = getHash(risk.위험요인);
         const stepName = risk.작업단계;
@@ -778,6 +779,9 @@ function preparePreviewData() {
             });
             
             if (currentState.manualNotes[key]?.improvement) improveMeasures.push(`(추가의견) ${currentState.manualNotes[key].improvement}`);
+
+            if (seenLogKeys.has(key)) return;
+            seenLogKeys.add(key);
 
             logs.push({
                 부서명: currentState.selectedDept,
@@ -975,7 +979,7 @@ function fetchJSONP(url) {
 }
 
 async function fetchInitialData() {
-    console.log("🚀 [v33.9.0-SYNC_MASTER] 하이브리드 동기화 가동...");
+    console.log("🚀 [v33.9.1-SYNC_MASTER] 하이브리드 동기화 가동...");
     updateNetworkStatus(false, '동기화 중');
 
     try {
@@ -1062,8 +1066,21 @@ function processRiskData(riskData) {
             });
         });
     });
-    currentState.risks = allRisks;
-    localStorage.setItem('kosha_cached_risks', JSON.stringify(allRisks));
+
+    // [v33.9.1] 고유 위험요인 필터링 (중복 방지) - 초고속 유니크 엔진
+    const uniqueRisks = [];
+    const riskSeen = new Set();
+    allRisks.forEach(r => {
+        const k = `${(r.부서명||"").trim()}-${(r.작업명||"").trim()}-${(r.작업단계||"").trim()}-${(r.위험요인||"").trim()}`;
+        if (!riskSeen.has(k)) {
+            riskSeen.add(k);
+            uniqueRisks.push(r);
+        }
+    });
+
+    currentState.risks = uniqueRisks;
+    localStorage.setItem('kosha_cached_risks', JSON.stringify(uniqueRisks));
+    console.log(`✅ [v33.9.1] 고유 위험요인 ${uniqueRisks.length}건 동기화 완료 (중복 ${allRisks.length - uniqueRisks.length}건 제거)`);
     renderDeptBanners();
 }
 
