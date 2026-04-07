@@ -72,8 +72,11 @@ function renderTBMDeptCards() {
 function selectTBMDept(dept) {
     tbmState.currentDept = dept;
     const container = document.getElementById('tbm-selection-container');
+    const viewer = document.getElementById('tbm-checklist-viewer');
     const statusText = document.getElementById('tbm-status-text');
 
+    if (viewer) viewer.style.display = 'none';
+    if (container) container.style.display = 'grid';
     if(statusText) statusText.innerText = `[${dept}] 부서의 작업을 선택해 주세요.`;
 
     const filteredLogs = tbmState.allLogs.filter(log => (log.부서명 || log.소속) === dept);
@@ -81,7 +84,7 @@ function selectTBMDept(dept) {
     // 작업별 그룹화 (최신순)
     const taskGroups = {};
     filteredLogs.forEach(log => {
-        const key = log.작업명 || "내용 없음";
+        const key = log.작업명 || log.task_name || log.task || "내용 없음";
         if (!taskGroups[key]) taskGroups[key] = log;
     });
 
@@ -112,7 +115,7 @@ function renderTBMChecklist(taskName) {
     const footer = document.getElementById('tbm-footer-btns');
 
     const logs = tbmState.allLogs.filter(l => (l.부서명 || l.소속) === tbmState.currentDept && l.작업명 === taskName);
-    tbmState.totalTBMItems = logs.length;
+    tbmState.totalTBMItems = 0; // 명시적 누적으로 수정
     
     if (container) container.style.display = 'none';
     if (footer) footer.style.display = 'none';
@@ -125,6 +128,14 @@ function renderTBMChecklist(taskName) {
     }
 
     let html = `
+        <!-- [NEW] Current Context Indicator for TBM -->
+        <div style="background: rgba(224, 242, 254, 0.4); padding: 10px 14px; border-radius: 12px; margin-bottom: 18px; font-weight: 800; font-size: 0.85rem; border: 1.5px solid rgba(14, 165, 233, 0.15); display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <i data-lucide="map-pin" style="width:16px; color:#0284c7;"></i>
+            <span style="color: #0369a1;">${tbmState.currentDept}</span> 
+            <i data-lucide="chevron-right" style="width:14px; color:#7dd3fc;"></i> 
+            <span style="color: #0c4a6e;">${tbmState.currentTask}</span>
+        </div>
+
         <div style="background:#f8fafc; padding:15px; border-radius:15px; margin-bottom:20px; font-size:0.85rem; color:#475569; border:1px solid #e2e8f0;">
             <i data-lucide="info" style="width:14px; vertical-align:middle; margin-right:4px;"></i> 
             선정된 위험 요인과 개선 대책을 현장에서 다시 한번 확인하고 체크해 주세요.
@@ -132,14 +143,25 @@ function renderTBMChecklist(taskName) {
         <div class="tbm-task-info" style="margin-bottom:20px; padding:15px; background:#f0f9ff; border-radius:16px; border:1px solid #bae6fd;">
             <div style="font-size:0.75rem; color:#0369a1; font-weight:700; margin-bottom:4px;">오늘의 작업 TBM</div>
             <div style="font-size:1.1rem; font-weight:900; color:#0c4a6e;">${tbmState.currentTask}</div>
-            <div style="font-size:0.8rem; color:#0c4a6e; margin-top:4px;">총 <span style="color:#0284c7; font-weight:900;">${tbmState.totalTBMItems}개</span>의 위험요인을 점검합니다.</div>
+            <div id="tbm-count-display" style="font-size:0.8rem; color:#0c4a6e; margin-top:4px;">총 <span style="color:#0284c7; font-weight:900;">0개</span>의 점검 항목을 확인합니다.</div>
         </div>
     `;
 
     logs.forEach((log, idx) => {
         const hazard = log.위험요인 || "위험요인 미상";
-        const measures = (log.현재안전조치 || "") + "\n" + (log.개선대책 || "");
-        const mList = measures.split('\n').map(m => m.trim()).filter(m => m.length > 2);
+        // '현재안전조치', '개선대책', 'current_measures', 'improvements_checked' 등 Google Sheets 속성 호환
+        const cm = log.현재안전조치 || log.current_measures || log.current_checked || "";
+        const im = log.개선대책 || log.improvements_checked || log.improved_checked || "";
+        
+        let measures = (cm + "\n" + im).replace(/\[이행\]\s?/g, '').replace(/\[개선\]\s?/g, '');
+        
+        // [v34.0.3] "진행 중" 등의 더미 문구를 체크리스트 항목에서 제외
+        const excludes = ["진행 중", "진행중", "없음", "이상 없음", "추가 개선사항 없음"];
+        const mList = measures.split('\n')
+            .map(m => m.trim())
+            .filter(m => m.length > 2 && !excludes.includes(m));
+
+        tbmState.totalTBMItems += mList.length;
 
         html += `
             <div class="check-item" style="cursor:default; margin-bottom:15px;">
@@ -165,6 +187,13 @@ function renderTBMChecklist(taskName) {
     });
 
     area.innerHTML = html;
+    
+    // 누적된 총 항목 수로 업데이트
+    const countDisplay = document.getElementById('tbm-count-display');
+    if (countDisplay) {
+        countDisplay.innerHTML = `총 <span style="color:#0284c7; font-weight:900;">${tbmState.totalTBMItems}개</span>의 점검 항목을 확인합니다.`;
+    }
+    
     if (window.lucide) window.lucide.createIcons();
     
     // 서명 패드 초기화 (v25.2)
@@ -243,6 +272,7 @@ async function submitTBM() {
     
     // [v30.1] 즉각적인 성공 화면 전환 (UX 개선)
     switchPhase('step-success');
+    document.getElementById('success-task-name').textContent = `[TBM] ${currentState.selectedTask || '작업명 없음'}`;
     if (window.lucide) window.lucide.createIcons();
 
     try {

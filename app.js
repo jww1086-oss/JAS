@@ -1,5 +1,5 @@
 function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
-console.log("%c🚀 KOMIPO Smart Safety System v33.9.4-SYNC_MASTER Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
+console.log("%c🚀 KOMIPO Smart Safety System v34.0.4-LAYOUT_FIX Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
@@ -31,16 +31,21 @@ const currentState = {
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyvavs2Dk-OKQpIsxNcs5LwXNHjibiUcHvTTEfngo4YMBBe94Vt5VTmrOWZo2otLuaieg/exec";
 const MASTER_SHEET = "위험성평가자료";// [NEW] 실시간 네트워크 상태 업데이트 함수 (v25.1)
 function updateNetworkStatus(isOnline, message = "") {
-    const indicator = document.getElementById('network-status');
+    const indicator = document.getElementById('status-indicator'); // [v34.0.5] 올바른 ID 매핑
     if (!indicator) return;
 
     if (isOnline) {
         indicator.className = 'status-indicator online';
-        indicator.querySelector('.status-text').textContent = message || '실시간 ON';
+        indicator.querySelector('#status-text').textContent = message || '실시간 ON';
     } else {
         indicator.className = 'status-indicator offline';
-        indicator.querySelector('.status-text').textContent = message || '접속 중...';
+        indicator.querySelector('#status-text').textContent = message || '오프라인';
     }
+}
+
+// [v34.0.5] 전송 대기 뱃지 업데이트 엔진 (사용 안함)
+function updateSyncBadge() {
+    // UI 뱃지는 표시하지 않고 조용히 백그라운드 처리만 수행합니다.
 }
 
 // 1. 데이터 보안 우회(CORS) 및 정제 유틸리티
@@ -51,7 +56,8 @@ function cleanValue(val) {
 
 function smartSplit(text) {
     if (!text || typeof text !== 'string') return [text];
-    const items = text.split(/(?=[0-9]+\.|[0-9]+\)|[①-⑳]|\([0-9]+\)|(?:\n|^)[-*••])/)
+    // [v34.0.1] 지능형 분할: 문장 시작이나 공백 뒤에 오는 리스트 마커만 분할 (숫자 범위 보호)
+    const items = text.split(/(?<=\s|^)(?=[0-9]+\.|[0-9]+\)|[①-⑳]|\([0-9]+\)|(?:\n|^)[-*••])/)
         .map(item => item.replace(/^[0-9]+\.|^[0-9]+\)|^[①-⑳]|^\([0-9]+\)|^-|^\*|^\•|^\•/, '').trim())
         .filter(item => item.length > 0);
     return items.length > 0 ? items : [text.trim()];
@@ -119,19 +125,41 @@ function resumeDraft(key) {
     }
 }
 
-// --- [NEW] 임시 저장 및 복원 시스템 (v25.2) ---
+// --- [v34.0.30] 임시 저장 및 복원 시스템 (경량화 버전) ---
 function saveDraft() {
     if (!currentState.selectedDept || !currentState.selectedTask) return;
     const key = `KOMIPO_DRAFT_${currentState.selectedDept}_${currentState.selectedTask}`;
-    const draftData = {
-        ...currentState,
-        checkedItems: Array.from(currentState.checkedItems),
-        checkedMeasures: Array.from(currentState.checkedMeasures),
-        improvedMeasures: Array.from(currentState.improvedMeasures),
-        expandedHazardKeys: Array.from(currentState.expandedHazardKeys),
-        lastUpdated: new Date().toISOString()
-    };
-    localStorage.setItem(key, JSON.stringify(draftData));
+    
+    try {
+        // [v34.0.30] 초경량화: currentState 전체가 아닌 실제 사용자 입력값만 선별하여 저장 (90% 이상 용량 절감)
+        const draftData = {
+            selectedDept: currentState.selectedDept,
+            selectedTask: currentState.selectedTask,
+            selectedWorkers: currentState.selectedWorkers,
+            selectedStep: currentState.selectedStep,
+            checkedItems: Array.from(currentState.checkedItems),
+            checkedMeasures: Array.from(currentState.checkedMeasures),
+            improvedMeasures: Array.from(currentState.improvedMeasures),
+            manualNotes: currentState.manualNotes,
+            riskMatrixData: currentState.riskMatrixData,
+            lastUpdated: new Date().toISOString()
+        };
+        localStorage.setItem(key, JSON.stringify(draftData));
+    } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+            console.warn("⚠️ LocalStorage 가득 참: 오래된 기록 자동 정리 모드 가동");
+            // 오래된 드래프트 하나를 지우고 다시 시도 (안정성 확보)
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('KOMIPO_DRAFT_')) {
+                    localStorage.removeItem(k);
+                    break;
+                }
+            }
+        } else {
+            console.error("Draft save error:", e);
+        }
+    }
 }
 
 function loadDrafts() {
@@ -223,11 +251,17 @@ function fetchGViz(sheetName) {
                 return;
             }
 
-            const cols = data.table.cols.map(c => (c.label || "").trim());
+            const cols = data.table.cols.map((c, i) => (c.label || "").trim() || `col_${i}`);
             const rows = data.table.rows.map(row => {
                 let obj = {};
                 row.c.forEach((cell, i) => {
-                    if (cols[i]) obj[cols[i]] = cell ? (cell.v !== null ? cell.v : "") : "";
+                    const key = cols[i];
+                    if (key) {
+                        const val = cell ? (cell.v !== null ? cell.v : "") : "";
+                        obj[key] = val;
+                        // [v34.0.23] 순서 기반 대체 키 제공 (A=0, B=1, ...)
+                        obj[`idx_${i}`] = val;
+                    }
                 });
                 return obj;
             });
@@ -334,16 +368,35 @@ function switchPhase(targetId, skipHistory = false) {
 
     // Stepper & Step State
     const stepper = document.getElementById('stepper');
-    if (targetId === 'dashboard' || targetId === 'step-history' || targetId === 'step-choice' || targetId === 'step-results') {
+    if (targetId === 'dashboard' || targetId === 'step-history' || targetId === 'step-choice' || targetId === 'step-results' || targetId === 'step-tbm' || targetId === 'step-success') {
         if (stepper) stepper.style.display = 'none';
         currentState.currentStep = 0;
     } else {
-        if (stepper) stepper.style.display = 'block';
+        if (stepper) {
+            stepper.style.display = 'block';
+            const contextBanner = document.getElementById('context-banner');
+            if (contextBanner) {
+                // targetId가 step-1이면 작업/부서를 고르는 곳이므로 배너를 감춥니다
+                if (targetId === 'step-1') {
+                    contextBanner.style.display = 'none';
+                } else {
+                    contextBanner.style.display = 'flex';
+                    document.getElementById('context-dept').textContent = currentState.selectedDept || '알 수 없음';
+                    document.getElementById('context-task').textContent = currentState.selectedTask || '작업 선택 안됨';
+                }
+            }
+        }
+        
         saveDraft(); // 단계 전환 시 자동 저장 활성화
         const stepNum = parseInt(targetId.replace('step-', ''));
         if (!isNaN(stepNum)) {
             currentState.currentStep = stepNum;
             updateStepperUI(stepNum);
+            
+            // [v34.1.2] 2단계(위험성 평가)로 복귀 시 목록 및 하단 버튼 자동 복구 렌더링
+            if (targetId === 'step-2') {
+                renderRiskChecklist(currentState.selectedStep);
+            }
         } else if (targetId === 'step-improvement') {
             updateStepperUI(3);
             renderImprovementPhase(); // [NEW] 개선 단계 진입 시 동적 렌더링 호출
@@ -432,17 +485,23 @@ function startAssessment() {
     const header = document.getElementById('step1-header');
     const confirmArea = document.getElementById('final-confirm-area');
     const homeBtn = document.getElementById('step1-home-btn');
+    const workerCard = document.getElementById('worker-input-card-wrap');
     
     if (container) {
         container.style.display = 'flex';
         container.classList.add('selection-banner-list');
     }
+    if (workerCard) workerCard.style.display = 'none';
+
     if (header) {
-        header.querySelector('h2').innerText = "평가자 정보 및 부서 선택";
-        header.querySelector('p').innerText = "성명을 선택하고 소속 부서를 클릭하세요.";
+        header.querySelector('h2').innerText = "부서 선택";
+        header.querySelector('p').innerText = "소속 부서를 선택하세요.";
     }
     if (confirmArea) confirmArea.style.display = 'none';
-    if (homeBtn) homeBtn.style.display = 'flex';
+    if (homeBtn) {
+        homeBtn.innerHTML = '<button class="btn btn-secondary" onclick="handleStep1Back()">이전단계</button>';
+        homeBtn.style.display = 'flex';
+    }
 
     switchPhase('step-1');
     renderDeptBanners();
@@ -498,7 +557,7 @@ function renderTaskBanners(dept) {
     const container = document.getElementById('selection-container');
     if (!container) return;
     
-    const rawTasks = [...new Set(currentState.risks.filter(r => r.부서명 === dept).map(r => r.작업명))];
+    const rawTasks = [...new Set(currentState.risks.filter(r => (r.부서명 || '').trim() === dept.trim()).map(r => r.작업명))];
     const tasks = rawTasks.filter(Boolean).sort(); // 가나다 순 정렬 확정
     
     // [v33.8.0-PRO] 1열 그리드로 변경하여 가독성 극대화 (카드형)
@@ -518,27 +577,177 @@ function renderTaskBanners(dept) {
 }
 
 function selectAssessmentTask(task) {
-    currentState.selectedTask = task;
-    console.log(`Selected Task: ${task}`);
+    currentState.selectedTask = (task || "").trim(); // [v34.0.18] 유령 문자 원천 차단
+    console.log(`Selected Task: ${currentState.selectedTask}`);
     
-    // 중간 확인 단계 없이 즉시 점검표로 이동 (초간편 워크플로우)
-    // 렌더링 지연 방지를 위해 즉시 화면 전환 시도
-    setTimeout(() => {
-        nextStep(2);
-    }, 10);
+    // [v34.0.5] 이전 상태 및 기존 평가자 자동 복원 (State Hydration)
+    hydrateStateFromLogs(task);
+    
+    const container = document.getElementById('selection-container');
+    const workerCard = document.getElementById('worker-input-card-wrap');
+    if (container) container.style.display = 'none';
+    if (workerCard) workerCard.style.display = 'block';
+
+    const header = document.getElementById('step1-header');
+    if (header) {
+        header.querySelector('h2').innerText = "평가자 성명 입력";
+        header.querySelector('p').innerText = "평가자 성명을 추가 또는 선택하세요.";
+    }
+
+    const homeBtn = document.getElementById('step1-home-btn');
+    if (homeBtn) {
+        homeBtn.style.display = 'grid';
+        homeBtn.style.gridTemplateColumns = '1fr 2fr';
+        homeBtn.style.gap = '12px';
+        homeBtn.innerHTML = `
+            <button class="btn btn-secondary" onclick="handleStep1Back()">이전단계</button>
+            <button class="btn btn-primary" onclick="nextStep(2)">다음단계</button>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+// [v34.0.5] 기존 점검 기록 기반 상태 자동 복원 로직
+function hydrateStateFromLogs(task) {
+    // 1. 기존 선택 초기화 (안전장치)
+    currentState.checkedItems.clear();
+    currentState.checkedMeasures.clear();
+    currentState.improvedMeasures.clear();
+    currentState.riskMatrixData = {};
+    currentState.manualNotes = {};
+    currentState.selectedWorkers = [];
+
+    const { selectedDept, allLogs } = currentState;
+    if (!allLogs || allLogs.length === 0) return;
+
+    // 현재 부서/작업에 해당하는 로그 필터 및 최신순 정렬
+    const taskLogs = allLogs.filter(l => 
+        (l.부서명 || l.소속) === selectedDept && 
+        (l.작업명 || l.task_name || l.task) === task
+    ).sort((a, b) => new Date(b.일시 || b.timestamp || 0) - new Date(a.일시 || a.timestamp || 0));
+
+    if (taskLogs.length === 0) return; // 히스토리 없음
+
+    // 가장 최신 세션(마지막으로 전송된 그룹)의 시간 추출 및 필터
+    const latestTime = taskLogs[0].일시 || taskLogs[0].timestamp;
+    const latestLogs = taskLogs.filter(l => (l.일시 || l.timestamp) === latestTime);
+
+    // [평가자 복원]
+    const workerStr = latestLogs[0].점검자 || latestLogs[0].worker || latestLogs[0].평가자 || "";
+    if (workerStr && workerStr !== "미지정") {
+        const workers = workerStr.split(',').map(s => s.trim()).filter(Boolean);
+        workers.forEach(w => {
+            if (!currentState.selectedWorkers.includes(w)) {
+                currentState.selectedWorkers.push(w);
+            }
+        });
+        updateSelectedWorkersUI();
+    }
+
+    // [위험성평가 상태 복원]
+    latestLogs.forEach(log => {
+        const hazardHash = getHash((log.위험요인 || log.hazard || "").trim());
+        const stepName = (log.작업단계 || log.step_name || "").trim();
+        const stepHash = getHash(stepName);
+        const taskHash = getHash(task || "");
+        const key = `${taskHash}-${stepHash}-${hazardHash}`;
+
+        // 마스터 데이터(risks)에 해당하는 요인이 존재하는지 찾기
+        const matchRisk = currentState.risks.find(r => 
+            getHash((r.위험요인||"").trim()) === hazardHash && 
+            getHash((r.작업단계||"").trim()) === stepHash && 
+            getHash((r.작업명||"").trim()) === taskHash
+        );
+
+        if (matchRisk) {
+            currentState.checkedItems.add(key);
+
+            // 매트릭스 수치 복원
+            currentState.riskMatrixData[key] = {
+                current: {
+                    severity: parseInt(log.현재_강도 || log.current_severity) || 1,
+                    frequency: parseInt(log.현재_빈도 || log.current_frequency) || 1,
+                    score: parseInt(log.현재_위험도 || log.current_score) || 1
+                },
+                residual: {
+                    severity: parseInt(log.잔류_강도 || log.residual_severity) || 1,
+                    frequency: parseInt(log.잔류_빈도 || log.residual_frequency) || 1,
+                    score: parseInt(log.잔류_위험도 || log.residual_score) || 1
+                }
+            };
+
+            // 조치 이력 추출
+            const cmStr = log.현재안전조치 || log.current_measures || log.current_checked || "";
+            const imStr = log.개선대책 || log.improvements_checked || log.improved_checked || "";
+
+            const cmList = cmStr.split('\n').map(m => m.replace(/\[이행\]\s?/g, '').trim()).filter(Boolean);
+            const imList = imStr.split('\n').map(m => m.replace(/\[개선\]\s?/g, '').trim()).filter(Boolean);
+
+            const standardCurrent = Array.isArray(matchRisk.current_measures) ? matchRisk.current_measures : [];
+            const standardImprove = Array.isArray(matchRisk.improvement_measures) ? matchRisk.improvement_measures : [];
+
+            const cmManual = [];
+            cmList.forEach(m => {
+                const idx = standardCurrent.findIndex(sm => sm.trim() === m);
+                if (idx !== -1) {
+                    currentState.checkedMeasures.add(`${key}-m-${idx}`);
+                } else if (m !== "이상 없음" && m !== "없음" && m !== "추가 개선사항 없음") {
+                    cmManual.push(m);
+                }
+            });
+
+            const imManual = [];
+            imList.forEach(m => {
+                const idx = standardImprove.findIndex(sm => sm.trim() === m);
+                if (idx !== -1) {
+                    currentState.improvedMeasures.add(`${key}-im-${idx}`);
+                } else if (m !== "이상 없음" && m !== "없음" && m !== "추가 개선사항 없음") {
+                    imManual.push(m);
+                }
+            });
+
+            if (cmManual.length > 0 || imManual.length > 0) {
+                currentState.manualNotes[key] = {
+                    current: cmManual.join('\n'),
+                    improvement: imManual.join('\n')
+                };
+            }
+        }
+    });
+
+    console.log(`[Hydration] 상태 복원 완료. (점검자: ${currentState.selectedWorkers.length}명, 복원 항목: ${currentState.checkedItems.size}건)`);
 }
 
 // [NEW] 1단계(부서/작업 선택) 이전단계 스마트 핸들러
 function handleStep1Back() {
-    const header = document.getElementById('step1-header');
+    const workerCard = document.getElementById('worker-input-card-wrap');
     
-    if (currentState.selectedDept) {
+    if (workerCard && workerCard.style.display === 'block') {
+        currentState.selectedTask = null;
+        workerCard.style.display = 'none';
+        
+        const container = document.getElementById('selection-container');
+        if (container) container.style.display = 'block';
+        
+        const header = document.getElementById('step1-header');
+        if (header) {
+            header.querySelector('h2').innerText = "작업명 선택";
+            header.querySelector('p').innerText = "수행 중인 작업을 선택하세요.";
+        }
+        
+        const homeBtn = document.getElementById('step1-home-btn');
+        if (homeBtn) {
+            homeBtn.style.display = 'block';
+            homeBtn.innerHTML = `<button class="btn btn-secondary" onclick="handleStep1Back()">이전단계</button>`;
+        }
+    } else if (currentState.selectedDept) {
         // 부서가 선택된 상태(즉, 작업명 선택 화면)라면 부서 선택 화면으로 되돌아감
         currentState.selectedDept = null;
         currentState.selectedTask = null;
+        const header = document.getElementById('step1-header');
         if (header) {
-            header.querySelector('h2').innerText = "평가자 정보 및 부서 선택";
-            header.querySelector('p').innerText = "성명을 선택하고 소속 부서를 클릭하세요.";
+            header.querySelector('h2').innerText = "부서 선택";
+            header.querySelector('p').innerText = "소속 부서를 선택하세요.";
         }
         renderDeptBanners();
     } else {
@@ -741,43 +950,64 @@ function generateReportHTML(data) {
     return `<div id="report-view-content" style="min-height:300px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">보고서를 구성 중입니다...</div>`;
 }
 
-// [NEW] 현재 점검 중인 데이터를 보고서 형식으로 변환하는 함수 (v25.0)
+// [NEW] 현재 점검 중인 데이터를 보고서 형식으로 변환하는 함수 (v34.0.1)
 function preparePreviewData() {
     const logs = [];
-    const workerName = document.getElementById('worker-input')?.value || currentState.selectedWorker || "미지정";
+    const workerNames = currentState.selectedWorkers.length > 0 ? currentState.selectedWorkers.join(', ') : currentState.selectedWorker || "미지정";
     
-    // 1. 표준 위험요인 처리
+    // 1. 표준 위험요인 처리 (3단계 키 구조: task-step-hazard)
     const taskHash = getHash(currentState.selectedTask || "");
-    
     const seenLogKeys = new Set();
+
     currentState.risks.forEach(risk => {
+        if ((risk.작업명||"").trim() !== (currentState.selectedTask||"").trim()) return;
+
         const hazardHash = getHash((risk.위험요인 || "").trim());
         const stepName = (risk.작업단계 || "").trim();
         const stepHash = getHash(stepName);
         const key = `${taskHash}-${stepHash}-${hazardHash}`;
         
-        if (currentState.checkedItems.has(key) || currentState.riskMatrixData[key]) {
-            const riskData = currentState.riskMatrixData[key] || { current: { score: 1 }, residual: { score: 1 } };
+        // [v34.1.7] riskMatrixData의 존재 여부와 상관없이 '체크박스'로 선택된 항목만 보고서에 포함
+        if (currentState.checkedItems.has(key)) {
+            const riskData = currentState.riskMatrixData[key] || { 
+                current: { severity: 1, frequency: 1, score: 1 }, 
+                residual: { severity: 1, frequency: 1, score: 1 } 
+            };
             
-            // 점검표 렌더링 로직과 동일하게 줄바꿈 분리
-            const standardMeasures = Array.isArray(risk.개선대책) ? risk.개선대책 : (risk.개선대책 ? risk.개선대책.split('\n') : []);
+            const standardCurrent = risk.current_measures || [];
+            const standardImprove = risk.improvement_measures || [];
             
+            // 현재 안전조치 추출
             const currentMeasures = [];
-            standardMeasures.forEach((m, idx) => {
-                if (currentState.checkedMeasures.has(`${key}-m-${idx}`)) {
-                    currentMeasures.push(`[이행] ${m.trim()}`);
-                }
+            standardCurrent.forEach((m, idx) => {
+                if (currentState.checkedMeasures.has(`${key}-m-${idx}`)) currentMeasures.push(m.trim());
             });
-            
+            if (currentState.manualHazardItems[key]?.current) {
+                currentState.manualHazardItems[key].current.forEach((m, idx) => {
+                    if (currentState.checkedMeasures.has(`${key}-mc-${idx}`)) currentMeasures.push(m.trim());
+                });
+            }
             if (currentState.manualNotes[key]?.current) currentMeasures.push(`(추가의견) ${currentState.manualNotes[key].current}`);
 
+            // 개선대책 추출 (폴백 로직 포함)
             const improveMeasures = [];
-            standardMeasures.forEach((m, idx) => {
-                if (currentState.improvedMeasures.has(`${key}-m-${idx}`)) {
-                    improveMeasures.push(`[개선] ${m.trim()}`);
+            currentState.improvedMeasures.forEach(mKey => {
+                if (mKey.startsWith(`${key}-im-`)) {
+                    const idx = parseInt(mKey.split('-im-')[1]);
+                    if (!isNaN(idx)) {
+                        let text = (standardImprove[idx] && standardImprove[idx].trim() !== "" && standardImprove[idx] !== "추가 개선사항 없음") 
+                                   ? standardImprove[idx].trim() 
+                                   : (standardCurrent[idx] ? standardCurrent[idx].trim() : null);
+                        if (text && !improveMeasures.includes(text)) improveMeasures.push(text);
+                    }
                 }
             });
-            
+            // 수동 개선대책
+            if (currentState.manualHazardItems[key]?.improve) {
+                currentState.manualHazardItems[key].improve.forEach((m, idx) => {
+                    if (currentState.improvedMeasures.has(`${key}-mi-${idx}`)) improveMeasures.push(m.trim());
+                });
+            }
             if (currentState.manualNotes[key]?.improvement) improveMeasures.push(`(추가의견) ${currentState.manualNotes[key].improvement}`);
 
             if (seenLogKeys.has(key)) return;
@@ -786,11 +1016,12 @@ function preparePreviewData() {
             logs.push({
                 부서명: currentState.selectedDept,
                 작업명: currentState.selectedTask,
-                점검자: workerName,
-                작업단계: stepName,
+                점검자: workerNames,
+                작업단계: risk.작업단계,
                 위험요인: risk.위험요인,
-                현재안전조치: currentMeasures.length > 0 ? currentMeasures.join('\n') : "없음",
-                개선대책: improveMeasures.length > 0 ? improveMeasures.join('\n') : "없음",
+                현재안전조치: currentMeasures.length > 0 ? currentMeasures.join('\n') : "이상 없음",
+                개선대책: improveMeasures.length > 0 ? improveMeasures.join('\n') : 
+                          (riskData.residual.score < riskData.current.score ? "작업 전 위험요인 공유 및 안전수칙 준수 여부 확인" : "추가 개선사항 없음"),
                 현재_빈도: riskData.current.frequency,
                 현재_강도: riskData.current.severity,
                 현재_위험도: riskData.current.score,
@@ -804,42 +1035,31 @@ function preparePreviewData() {
     // 2. 수동 추가 위험요인 처리
     currentState.manualHazards.forEach(hazard => {
         const key = hazard.id;
-        const stepName = hazard.stepName;
         const riskData = currentState.riskMatrixData[key] || { current: { score: 1 }, residual: { score: 1 } };
         
         const currentMeasures = (currentState.manualHazardItems[key]?.current || []).filter((_, idx) => currentState.checkedMeasures.has(`${key}-mc-${idx}`));
-        if (currentState.manualNotes[key]?.current) currentMeasures.push(`(추가의견) ${currentState.manualNotes[key].current}`);
-        
         const improveMeasures = (currentState.manualHazardItems[key]?.improve || []).filter((_, idx) => currentState.improvedMeasures.has(`${key}-mi-${idx}`));
-        if (currentState.manualNotes[key]?.improvement) improveMeasures.push(`(추가의견) ${currentState.manualNotes[key].improvement}`);
-
+        
         logs.push({
             부서명: currentState.selectedDept,
             작업명: currentState.selectedTask,
-            점검자: workerName,
-            작업단계: stepName,
+            점검자: workerNames,
+            작업단계: hazard.stepName,
             위험요인: hazard.hazardName,
-            현재안전조치: currentMeasures.join('\n') || "이상 없음 (양호)",
-            개선대책: improveMeasures.join('\n') || "추가 개선사항 없음",
+            현재안전조치: currentMeasures.join('\n') || "이상 없음",
+            개선대책: improveMeasures.join('\n') || 
+                      (riskData.residual.score < riskData.current.score ? "작업 전 위험요인 공유 및 안전수칙 준수 여부 확인" : "추가 개선사항 없음"),
+            현재_빈도: riskData.current.frequency,
+            현재_강도: riskData.current.severity,
             현재_위험도: riskData.current.score,
-            잔류_위험도: riskData.residual.score,
-            종합개선의견: document.getElementById('overall-improvement')?.value || ""
+            잔류_빈도: riskData.residual.frequency,
+            잔류_강도: riskData.residual.severity,
+            잔류_위험도: riskData.residual.score
         });
     });
 
-    // 3. [v33.9.3] 최종 로그 중복 방지 - 비주얼 기반 완벽 필터링
-    const finalLogs = [];
-    const logSeen = new Set();
-    logs.forEach(l => {
-        const fingerPrint = `${l.작업명}-${l.작업단계}-${l.위험요인}`;
-        if (!logSeen.has(fingerPrint)) {
-            logSeen.add(fingerPrint);
-            finalLogs.push(l);
-        }
-    });
-
-    console.log(`✅ [v33.9.3] 미리보기 데이터 구성 완료 (${finalLogs.length}건)`);
-    return finalLogs;
+    console.log(`✅ [v34.0.13] 데이터 조립 완료 (${logs.length}건)`);
+    return logs;
 }
 
 function nextStep(step) {
@@ -922,6 +1142,10 @@ function nextStep(step) {
     switchPhase(`step-${step}`);
 }
 
+function handleStep2Back() {
+    switchPhase('step-1');
+}
+
 function prevStep() {
     if (currentState.currentStepIndex > 0) {
         currentState.currentStepIndex--;
@@ -929,12 +1153,12 @@ function prevStep() {
         renderRiskChecklist(currentState.selectedStep);
         window.scrollTo({top: 0, behavior: 'smooth'});
     } else {
-        // 첫 번째 단계에서 이전 기능은 처음으로(대시보드) 이동
-        location.reload();
+        // 첫 번째 단계에서 이전 기능은 처음으로(대시보드) 이동 대신 작업 선택으로 이동
+        handleStep2Back();
     }
 }
 
-function prevStep(step) {
+function prevStepFallback(step) {
     if (step === 0) {
         goHome();
     } else {
@@ -991,20 +1215,23 @@ function fetchJSONP(url) {
 }
 
 async function fetchInitialData() {
-    console.log("🚀 [v33.9.4-SYNC_MASTER] 하이브리드 동기화 가동...");
+    console.log("🚀 [v34.0.4-LAYOUT_FIX] 하이브리드 동기화 가동...");
     updateNetworkStatus(false, '동기화 중');
 
     try {
         // [v33.6] 1단계: 초고속 GViz 엔진(JSONP) 선제 시도
         try {
             console.log("⚡ [Fast-Path] GViz 엔진 시도 중...");
-            const [riskData, userData] = await Promise.all([
+            const [riskData, userData, logsData] = await Promise.all([
                 fetchGViz(MASTER_SHEET),
-                fetchGViz("평가자명단")
+                fetchGViz("평가자명단"),
+                fetchGViz("위험성평가실시")
             ]);
             
             processRiskData(riskData);
             processUserData(userData);
+            if (logsData && Array.isArray(logsData)) currentState.allLogs = logsData;
+            
             finalizeSync("✅ [Hyper] 구글 엔진 직통 동기화 완료");
             return; 
 
@@ -1013,13 +1240,16 @@ async function fetchInitialData() {
             
             // [v33.6.1] 2단계: 보안 GAS 엔진(Legacy Path) 최적화 호출
             // fetch() 대신 CORS 이슈 없는 fetchJSONP 사용으로 100% 수신 보장
-            const [riskData, userData] = await Promise.all([
+            const [riskData, userData, logsData] = await Promise.all([
                 fetchJSONP(GAS_URL + "?type=master"),
-                fetchJSONP(GAS_URL + "?type=users")
+                fetchJSONP(GAS_URL + "?type=users"),
+                fetchJSONP(GAS_URL + "?type=logs")
             ]);
 
             processRiskData(riskData);
             processUserData(userData);
+            if (logsData && Array.isArray(logsData)) currentState.allLogs = logsData;
+            
             finalizeSync("✅ [Standard] 보안 앱스 서버 동기화 완료");
         }
 
@@ -1074,7 +1304,10 @@ function processRiskData(riskData) {
                 improvement_measures: improvementMeasures,
                 current_frequency: getV(item, ["현재_빈도", "current_frequency"]) || 1,
                 current_severity: getV(item, ["현재_강도", "current_severity"]) || 1,
-                current_score: getV(item, ["현재_위험도", "current_score"]) || 1
+                current_score: getV(item, ["현재_위험도", "current_score"]) || 1,
+                residual_frequency: getV(item, ["개선후_빈도", "잔류_빈도", "residual_frequency"]) || 1,
+                residual_severity: getV(item, ["개선후_강도", "잔류_강도", "residual_severity"]) || 1,
+                residual_score: getV(item, ["개선후_위험도", "잔류_위험도", "residual_score"]) || 1
             });
         });
     });
@@ -1083,7 +1316,8 @@ function processRiskData(riskData) {
     const uniqueRisks = [];
     const riskSeen = new Set();
     allRisks.forEach(r => {
-        const k = `${(r.부서명||"").trim()}-${(r.작업명||"").trim()}-${(r.작업단계||"").trim()}-${(r.위험요인||"").trim()}`;
+        // [v34.0.0] 데이터 원본 중복 제거 시에도 공백 완전 제거 키 사용
+        const k = `${(r.부서명||"").replace(/\s/g, '')}-${(r.작업명||"").replace(/\s/g, '')}-${(r.작업단계||"").replace(/\s/g, '')}-${(r.위험요인||"").replace(/\s/g, '')}`;
         if (!riskSeen.has(k)) {
             riskSeen.add(k);
             uniqueRisks.push(r);
@@ -1111,6 +1345,7 @@ function processUserData(userData) {
 function finalizeSync(msg) {
     console.log(msg);
     updateNetworkStatus(true, '실시간 ON');
+    updateSyncBadge(); // [v34.0.5] 앱 진입/로딩 완료 시점 대기열 뱃지 UI 최신화
     setTimeout(() => {
         showToast("📱 최신 데이터와 동기화되었습니다.");
     }, 3000); 
@@ -1367,10 +1602,23 @@ function renderRiskChecklist(stepName) {
         const isChecked = currentState.checkedItems.has(key);
         const notes = currentState.manualNotes[key] || { current: "", improvement: "" };
         
-        const riskData = currentState.riskMatrixData[key] || { 
-            current: { severity: 1, frequency: 1, score: 1 },
-            residual: { severity: 1, frequency: 1, score: 1 }
-        };
+        // [v34.1.6] 화면에 렌더링되는 속성들을 즉시 상태(currentState)로 고정하여, 
+        // 나중에 빈도만 바꿨을 때 강도가 1로 리셋되는 현상을 원천 차단
+        if (!currentState.riskMatrixData[key]) {
+            currentState.riskMatrixData[key] = { 
+                current: { 
+                    severity: parseInt(r.current_severity) || 1, 
+                    frequency: parseInt(r.current_frequency) || 1, 
+                    score: (parseInt(r.current_severity) || 1) * (parseInt(r.current_frequency) || 1)
+                },
+                residual: { 
+                    severity: parseInt(r.residual_severity) || 1, 
+                    frequency: parseInt(r.residual_frequency) || 1, 
+                    score: (parseInt(r.residual_severity) || 1) * (parseInt(r.residual_frequency) || 1)
+                }
+            };
+        }
+        const riskData = currentState.riskMatrixData[key];
         
         const measures = Array.isArray(r.개선대책) ? r.개선대책 : [r.개선대책];
         const isExpanded = currentState.expandedHazardKeys.has(key);
@@ -1386,55 +1634,6 @@ function renderRiskChecklist(stepName) {
                     <span class="risk" style="flex: 1; font-weight: 900; color: #1e293b;">${r.위험요인}</span>
                     <i data-lucide="chevron-down" class="expand-icon" style="transition: 0.3s; ${isExpanded ? 'transform: rotate(180deg);' : ''}"></i>
                 </div>
-
-                <style>
-                    /* [v33.7] Compact Task Selection Engine - Ultra Slim Grid */
-                    .compact-task-grid {
-                        display: grid;
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: 8px;
-                        padding: 10px 0;
-                    }
-
-                    .compact-task-item {
-                        background: white;
-                        border-radius: 14px;
-                        padding: 12px 14px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        text-align: center;
-                        border: 1.2px solid #e2e8f0;
-                        cursor: pointer;
-                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                        min-height: 52px;
-                    }
-
-                    .compact-task-item .title {
-                        font-weight: 800;
-                        font-size: 0.88rem;
-                        color: #334155;
-                        line-height: 1.25;
-                        word-break: keep-all;
-                        display: -webkit-box;
-                        -webkit-line-clamp: 2;
-                        -webkit-box-orient: vertical;
-                        overflow: hidden;
-                    }
-
-                    .compact-task-item:hover {
-                        background: #eff6ff;
-                        border-color: var(--doing-blue);
-                        transform: translateY(-2px);
-                        box-shadow: 0 8px 15px rgba(14, 165, 233, 0.1);
-                    }
-
-                    .compact-task-item:active {
-                        transform: scale(0.96);
-                        background: #e0f2fe;
-                    }
-                </style>
 
                 <div class="measure-container" id="measure-panel-${i}" style="margin-top: 0; display: ${isExpanded ? 'block' : 'none'};">
                     <!-- Section 1: 현재안전조치 -->
@@ -1470,14 +1669,14 @@ function renderRiskChecklist(stepName) {
                         <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(248, 250, 252, 0.8); padding: 0.85rem 1rem; border-radius: 16px; border: 1px solid #e2e8f0;">
                                   <span style="font-weight: 800; color: #334155; font-size: 0.85rem; font-family: 'Outfit', sans-serif;">현재 위험성 수준</span>
                             <div class="matrix-row-unified" style="margin: 0; display: flex; align-items: center; gap: 8px;">
-                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'current', 'severity', this.value)" 
-                                        style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
-                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.current.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
-                                </select>
-                                <span style="font-weight: 900; color: #94a3b8; font-size: 0.8rem;">×</span>
                                 <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'current', 'frequency', this.value)"
                                         style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.current.frequency == v ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                                <span style="font-weight: 900; color: #94a3b8; font-size: 0.8rem;">×</span>
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'current', 'severity', this.value)" 
+                                        style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
+                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.current.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
                                 <span style="font-weight: 900; color: #94a3b8; font-size: 0.8rem;">=</span>
                                 <span class="row-score ${getScoreClass(riskData.current.score)}" 
@@ -1505,8 +1704,7 @@ function renderRiskChecklist(stepName) {
                                 const listHTML = Array.from({length: maxLen}).map((_, mi) => {
                                     const cKey = `${key}-m-${mi}`;
                                     const mKey = `${key}-im-${mi}`;
-                                    
-                                    // [핵심] 현재안전조치가 체크되어 있다면 개선대책에서 숨김
+                                    // [핵심] 현재안전조치가 체크되어 있다면 개선대책에서 숨김 (복구)
                                     if (currentState.checkedMeasures.has(cKey)) return '';
                                     
                                     // 개선대책 문구 결정: 지정된 대책이 없으면 현재 대책 문구를 폴백으로 사용
@@ -1547,14 +1745,14 @@ function renderRiskChecklist(stepName) {
                         <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(254, 242, 242, 0.5); padding: 0.85rem 1rem; border-radius: 16px; border: 1.5px solid rgba(244, 63, 94, 0.1);">
                             <span style="font-weight: 800; color: var(--doing-accent); font-size: 0.85rem; font-family: 'Outfit', sans-serif;">개선 후 잔류위험</span>
                             <div class="matrix-row-unified" style="margin: 0; display: flex; align-items: center; gap: 8px;">
-                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'severity', this.value)"
-                                        style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
-                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
-                                </select>
-                                <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4); font-size: 0.8rem;">×</span>
                                 <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'frequency', this.value)"
                                         style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
                                     ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.frequency == v ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                                <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4); font-size: 0.8rem;">×</span>
+                                <select class="row-select" onchange="updateRiskScoreByHash('${key}', '${stepName}', 'residual', 'severity', this.value)"
+                                        style="background: white; border: 1.5px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 4px 8px; font-weight: 700; cursor: pointer;">
+                                    ${[1,2,3,4].map(v => `<option value="${v}" ${riskData.residual.severity == v ? 'selected' : ''}>${v}</option>`).join('')}
                                 </select>
                                 <span style="font-weight: 900; color: rgba(244, 63, 94, 0.4); font-size: 0.8rem;">=</span>
                                 <span class="row-score ${getScoreClass(riskData.residual.score)}" 
@@ -1680,6 +1878,7 @@ function renderRiskChecklist(stepName) {
                                 const isMChecked = currentState.checkedMeasures.has(mcKey);
                                 const isMImproved = currentState.improvedMeasures.has(miKey);
                                 
+                                // [복구] 수동 개선대책도 현재안전조치가 체크되면 숨김
                                 if (isMChecked) return '';
 
                                 return `
@@ -2068,9 +2267,8 @@ function toggleMeasureByHash(mKey, type, stepName, event) {
         }
     }
     
-    // Auto-check parent hazard
-    const parts = mKey.split('-m-');
-    const hazardKey = parts[0];
+    // Auto-check parent hazard (정규식을 사용하여 모든 유형의 구분자 대응)
+    const hazardKey = mKey.split(/-(?:m|im|mc|mi)-/)[0];
     if (!currentState.checkedItems.has(hazardKey)) {
         currentState.checkedItems.add(hazardKey);
     }
@@ -2090,10 +2288,9 @@ function updateRiskScoreByHash(key, stepName, matrixType, field, value) {
     const val = parseInt(value);
     currentState.riskMatrixData[key][matrixType][field] = val;
     
-    // [핵심 개선] 현재위험(current) 수정 시 잔류위험(residual) 강제 동기화
-    if (matrixType === 'current') {
-        currentState.riskMatrixData[key].residual[field] = val;
-    }
+    // [v34.1.5] 현재위험과 잔류위험의 자동 수치 동기화 로직 제거 (독립 입력 보장)
+    
+    // 각각의 최종 점수 재계산 (current & residual 둘 다 확실히 동기화)
 
     // 각각의 최종 점수 재계산 (current & residual 둘 다 확실히 동기화)
     const current = currentState.riskMatrixData[key].current;
@@ -2123,43 +2320,36 @@ function updateNextButton(totalInStep) {
     const container = document.getElementById('next-action-container');
     if (!container) return;
 
-    const currentCheckedCount = Array.from(currentState.checkedItems).filter(key => 
-        key.startsWith(`${getHash(currentState.selectedTask || "")}-${getHash(currentState.selectedStep || "")}`)
-    ).length;
-    
     const isFirstStep = currentState.currentStepIndex === 0;
     const isLastStep = currentState.currentStepIndex === currentState.availableSteps.length - 1;
     
     const nextBtnText = isLastStep ? "평가 완료 <i data-lucide='check-check'></i>" : "다음단계 <i data-lucide='arrow-right'></i>";
-    const prevBtnText = "<i data-lucide='arrow-left'></i> 이전단계";
     const totalSteps = currentState.availableSteps.length;
     const currentStepNum = currentState.currentStepIndex + 1;
     const nextStepDisplay = isLastStep ? currentStepNum : currentStepNum + 1;
     const progressText = `(${nextStepDisplay} / ${totalSteps} 단계)`;
 
+    // [v34.1.1] 첫 단계여도 무조건 '이전단계'를 노출하여 선택 화면 복귀 보장
+    const backAction = isFirstStep ? "handleStep2Back()" : "prevStep()";
+    const backBtnText = "<i data-lucide='arrow-left'></i> 이전단계";
+
     container.innerHTML = `
         <div class="next-action-area active" style="margin-top:2rem; display: flex; flex-direction: column; gap: 12px; animation: fadeInUp 0.5s ease-out;">
-            <div style="display: grid; grid-template-columns: ${isFirstStep ? '1fr' : '1fr 1fr'}; gap: 10px;">
-                ${!isFirstStep ? `
-                    <button class="btn btn-secondary" 
-                            style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border:1.5px solid #e2e8f0; color:#475569; font-weight:800; font-family:'Outfit', sans-serif;" 
-                            onclick="prevStep()">
-                        ${prevBtnText}
-                    </button>
-                ` : ''}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <button class="btn" 
+                        style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border:1.5px solid #e2e8f0; color:#475569; font-weight:800; font-family:'Outfit', sans-serif;" 
+                        onclick="${backAction}">
+                    ${backBtnText}
+                </button>
                 <button class="btn btn-primary" 
                         style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; gap:10px; background: var(--doing-indigo); box-shadow: var(--shadow-md);" 
                         onclick="nextStep(3)">
-                    <span>${nextBtnText}</span>
-                    <span style="font-size:0.8rem; opacity:0.8;">${progressText}</span>
+                    <div style="display:flex; flex-direction:column; align-items:center; line-height:1.2;">
+                        <span style="font-size:1rem;">${nextBtnText}</span>
+                        <span style="font-size:0.7rem; opacity:0.8; font-weight:500;">${progressText}</span>
+                    </div>
                 </button>
             </div>
-
-            <button class="btn btn-secondary-outline" 
-                    style="width:100%; border-radius:20px; padding:1.2rem; display:flex; align-items:center; justify-content:center; background:#ffffff; border:1px solid #e2e8f0; color:#1e293b; font-weight:800; font-family:'Outfit', sans-serif;" 
-                    onclick="location.reload()">
-                처음으로
-            </button>
         </div>
     `;
     if (window.lucide) window.lucide.createIcons();
@@ -2199,107 +2389,112 @@ async function submitLog() {
     const loadingText = overlay ? overlay.querySelector('p') : null;
     
     // [v33.1] 로딩바를 건너뛰고 즉시 성공 애니메이션으로 (UX 개선)
-    if (overlay) overlay.classList.remove('active');
-
-    const logs = Array.from(currentState.checkedItems).map(key => {
-        const parts = key.split('-');
-        if (parts.length < 3) return null;
-        
-        const r = currentState.risks.find(risk => 
-            getHash(risk.작업명 || "") === parts[0] &&
-            getHash(risk.작업단계 || "") === parts[1] &&
-            getHash(risk.위험요인 || "") === parts[2]
-        );
-        
-        if (!r) return null;
-        
-        const riskData = currentState.riskMatrixData[key] || {
-            current: { severity: 1, frequency: 1, score: 1 },
-            residual: { severity: 1, frequency: 1, score: 1 }
-        };
-        
-        const mNotes = currentState.manualNotes[key] || { current: "", improvement: "" };
-        
-        // [v33.7.1] 개별 정의된 안전조치/개선대책 데이터 추출
-        const currentMeasures = Array.isArray(r.current_measures) ? r.current_measures : (r.current_measures ? r.current_measures.split('\n') : []);
-        const improvementMeasures = Array.isArray(r.improvement_measures) ? r.improvement_measures : (r.improvement_measures ? r.improvement_measures.split('\n') : []);
-        
-        const currentChecked = [...currentMeasures.filter((_, mi) => currentState.checkedMeasures.has(`${key}-m-${mi}`)), mNotes.current]
-            .filter(v => v && v.trim()).map(v => v.includes('[이행]') ? v : `[이행] ${v}`).join('\n');
-            
-        const improvedList = [...improvementMeasures.filter((_, mi) => currentState.improvedMeasures.has(`${key}-im-${mi}`)), mNotes.improvement]
-            .filter(v => v && v.trim()).map(v => v.includes('[개선]') ? v : `[개선] ${v}`).join('\n');
-            
-        return {
-            department: currentState.selectedDept,
-            작업명: currentState.selectedTask,
-            step_name: r.작업단계 || currentState.selectedStep,
-            hazard: r.위험요인,
-            current_measures: currentChecked || "진행 중",
-            improvements_checked: improvedList || "없음",
-            current_frequency: riskData.current.frequency,
-            current_severity: riskData.current.severity,
-            current_score: riskData.current.score,
-            residual_frequency: riskData.residual.frequency,
-            residual_severity: riskData.residual.severity,
-            residual_score: riskData.residual.score
-        };
-    }).filter(Boolean);
-
+    const activeTask = (currentState.selectedTask || "").trim();
+    const activeDept = (currentState.selectedDept || "").trim();
     const workerNames = currentState.selectedWorkers.length > 0 ? currentState.selectedWorkers.join(', ') : currentState.selectedWorker || '';
 
-    // [v32.0] 개선대책 실행계획 데이터 추출
-    const improvementPlan = Array.from(currentState.improvedMeasures).map(mKey => {
-        const result = currentState.improvementResults[mKey] || { note: "" };
-        let hazardName = "미정의 위험요인";
-        
-        // 키 분석하여 위험요인 명칭 추출
-        if (mKey.includes('-mi-')) {
-            const hId = mKey.split('-mi-')[0];
-            const hazard = (currentState.manualHazards || []).find(h => h.id === hId);
-            if (hazard) hazardName = hazard.hazardName;
-        } else {
-            const parts = mKey.split('-m-');
-            if (parts.length >= 2) {
-                const hazardHash = parts[0].split('-').pop();
-                const risk = currentState.risks.find(r => getHash(r.위험요인) === hazardHash);
-                if (risk) hazardName = risk.위험요인;
-            }
-        }
+    // [v34.0.20] 누락된 데이터 수집 명령 복구 (버튼 작동 불능 해결)
+    const logs = preparePreviewData();
 
-        return {
-            hazard: hazardName,
-            improvement_measure: result.note || "현장 즉시 개선 권고",
-            improvement_date: new Date().toLocaleDateString('ko-KR')
-        };
-    });
+    // [v34.0.19] 데이터 불일치 원천 차단: 미리보기 logs가 작업명을 가지고 있으므로 이를 최우선으로 사용
+    const taskNameFromLog = logs.length > 0 ? logs[0].작업명 : activeTask;
+
+    if (!logs || logs.length === 0) {
+        showToast("⚠️ 제출할 점검 항목이 없습니다.");
+        if (overlay) overlay.classList.remove('active');
+        return;
+    }
+
+    const formattedLogs = logs.map(l => ({
+        submission_id: Date.now(),
+        // [v34.0.19] 서버가 부서명 바로 오른쪽에서 읽을 수 있게 밀착 배치
+        부서명: activeDept,
+        department: activeDept,
+        "부서명 ": activeDept,
+        소속: activeDept,
+        작업명: l.작업명 || taskNameFromLog,
+        "작업명 ": l.작업명 || taskNameFromLog,
+        task: l.작업명 || taskNameFromLog,
+        work_name: l.작업명 || taskNameFromLog,
+        task_name: l.작업명 || taskNameFromLog,
+        job_name: l.작업명 || taskNameFromLog,
+        category: l.작업명 || taskNameFromLog, // [v34.0.19] category 추가
+        공사명: l.작업명 || taskNameFromLog,     // [v34.0.19] 공사명 추가
+        작업: l.작업명 || taskNameFromLog,
+        step_name: l.작업단계,
+        hazard: l.위험요인,
+        current_measures: l.현재안전조치,
+        improvements_checked: l.개선대책,
+        current_frequency: l.현재_빈도,
+        current_severity: l.현재_강도,
+        current_score: l.현재_위험도,
+        residual_frequency: l.잔류_빈도,
+        residual_severity: l.잔류_강도,
+        residual_score: l.잔류_위험도,
+        timestamp: new Date().toLocaleString('ko-KR')
+    }));
+
+    const improvementPlan = logs
+        .filter(l => l.개선대책 && l.개선대책.trim() !== "" && l.개선대책 !== "추가 개선사항 없음")
+        .map(l => ({
+            submission_id: Date.now(),
+            부서명: activeDept,
+            department: activeDept,
+            작업명: l.작업명 || taskNameFromLog,
+            task: l.작업명 || taskNameFromLog,
+            work_name: l.작업명 || taskNameFromLog,
+            category: l.작업명 || taskNameFromLog,
+            hazard: l.위험요인,
+            improvement_measure: l.개선대책,
+            improvement_date: new Date().toLocaleDateString('ko-KR'),
+            timestamp: new Date().toLocaleString('ko-KR')
+        }));
 
     const payload = {
+        submission_id: Date.now(),
+        // [v34.0.19] 최상단 레이어에서도 부서명-작업명 밀착 배치
+        부서명: activeDept,
+        department: activeDept,
+        소속: activeDept,
+        작업명: taskNameFromLog,
+        "작업명 ": taskNameFromLog,
+        task: taskNameFromLog,
+        task_name: taskNameFromLog,
+        work_name: taskNameFromLog,
+        job_name: taskNameFromLog,
+        category: taskNameFromLog,
         worker: workerNames,
-        department: currentState.selectedDept,
-        작업명: currentState.selectedTask,
-        step: currentState.selectedStep,
-        logs: logs,
-        improvement_plan: improvementPlan, 
+        점검자: workerNames,
+        timestamp: new Date().toLocaleString('ko-KR'),
+        logs: formattedLogs,
+        improvement_plan: improvementPlan,
         overall_improvement: document.getElementById('overall-improvement')?.value || "",
         photo: currentState.photoBase64 || "",
         signature: typeof signaturePad !== 'undefined' && !signaturePad.isEmpty() ? signaturePad.toDataURL() : ""
     };
+
     try {
-        // [v30.1] 즉각적인 성공 화면 전환 (UX 개선)
         switchPhase('step-success');
+        document.getElementById('success-task-name').textContent = `[위험성평가] ${taskNameFromLog}`;
         if (window.lucide) window.lucide.createIcons();
 
+        const finalUrl = `${GAS_URL}?worker=${encodeURIComponent(workerNames)}&department=${encodeURIComponent(activeDept)}&work_name=${encodeURIComponent(taskNameFromLog)}&task=${encodeURIComponent(taskNameFromLog)}&작업명=${encodeURIComponent(taskNameFromLog)}&timestamp=${Date.now()}`;
+
         // [배경 처리] 구글 시트로 데이터 전송
-        fetch(GAS_URL, {
+        fetch(finalUrl, {
             method: "POST",
             mode: "no-cors",
+            cache: "no-cache",
             body: JSON.stringify(payload),
             headers: { 'Content-Type': 'text/plain' }
-        }).then(() => {
-            console.log("✅ 데이터 전송 완료 (백그라운드)");
+        }).then(response => {
+            console.log("✅ 데이터 전송 성공 (v34.0.17)");
+            showToast("✅ 구글 시트 전송이 완료되었습니다."); 
+            
+            // [v34.0.10] 제출 성공 시 임시저장 데이터 삭제
             const draftKey = `KOMIPO_DRAFT_${currentState.selectedDept}_${currentState.selectedTask}`;
             localStorage.removeItem(draftKey);
+            
         }).catch(err => {
             console.warn("⚠️ 전송 실패, 대기열 저장:", err);
             queueSubmission(payload);
@@ -2320,13 +2515,19 @@ function queueSubmission(payload) {
         retryCount: 0
     });
     localStorage.setItem('kosha_sync_queue', JSON.stringify(queue));
+    updateSyncBadge();
+    showToast(`⚠️ 오프라인 모드: 연결이 복구되면 자동으로 전송됩니다. (${queue.length}건 대기)`);
 }
 
 async function syncPendingSubmissions() {
     if (!navigator.onLine) return;
     const queue = JSON.parse(localStorage.getItem('kosha_sync_queue') || '[]');
-    if (queue.length === 0) return;
+    if (queue.length === 0) {
+        updateSyncBadge();
+        return;
+    }
 
+    let successCount = 0;
     for (let i = 0; i < queue.length; i++) {
         try {
             await fetch(GAS_URL, {
@@ -2335,14 +2536,33 @@ async function syncPendingSubmissions() {
                 body: JSON.stringify(queue[i].payload),
                 headers: { 'Content-Type': 'text/plain' }
             });
+            successCount++;
             queue.splice(i, 1);
             i--;
         } catch (e) {
-            console.error("Sync failed for item", queue[i].id);
+            console.error("Sync failed for item", queue[i]?.id);
+            queue[i].retryCount++;
         }
     }
     localStorage.setItem('kosha_sync_queue', JSON.stringify(queue));
+    updateSyncBadge();
+    
+    if (successCount > 0) {
+        showToast(`✅ 보류되었던 ${successCount}건의 데이터가 구글시트로 전송 완료되었습니다.`);
+    }
 }
+
+// [v34.0.5] 글로벌 네트워크 리스너 및 백그라운드 싱크 활성화
+window.addEventListener('online', () => {
+    updateNetworkStatus(true, "실시간 ON");
+    showToast("🌐 네트워크 연결됨: 연동 큐 처리 시작");
+    syncPendingSubmissions();
+});
+window.addEventListener('offline', () => {
+    showToast("📡 네트워크 끊김: 오프라인 모드로 안전 전환");
+});
+// [v34.0.15] 중복 전송 방지를 위해 30초 자동 동기화 기능을 제거합니다.
+// setInterval(syncPendingSubmissions, 30000); 
 
 function showToast(msg) {
     const toast = document.getElementById('toast');
@@ -2365,19 +2585,30 @@ async function openResultsView() {
     }
     
     try {
-        const response = await fetchGViz("위험성평가실시");
-        const drafts = typeof loadDrafts === 'function' ? loadDrafts() : []; 
+        // [v34.0.26] 하이브리드 보안 동기화: 고속 엔진(GViz) 시도 후 실패 시 보안 엔진(GAS-JSONP)으로 자동 전환
+        let response = null;
+        try {
+            console.log("⚡ [Fast-Path] 결과 데이터 고속 로드 시도...");
+            response = await fetchGViz("위험성평가실시");
+        } catch (gvizError) {
+            console.warn("🛡️ [Fallback] 보안 통로(GAS-JSONP)로 결과를 불러옵니다.");
+            // [v34.0.26] 시트 보안 설정으로 막혔을 때 앱스 서버 보안 우회로를 즉시 개설
+            response = await fetchJSONP(GAS_URL + "?type=logs");
+        }
         
-        let allLogs = [];
-        if (Array.isArray(response)) allLogs = [...response];
-        
-        currentState.allLogs = [...drafts, ...allLogs];
+        if (response && Array.isArray(response)) {
+            // [v34.0.26] 최신본으로 갱신 (헤더 무시 매핑은 renderResultDeptCards에서 자동 처리)
+            currentState.allLogs = response;
+            console.log(`✅ [Sync] Result records loaded: ${response.length}`);
+        } else {
+            currentState.allLogs = [];
+        }
         
         switchPhase('step-results');
         renderResultDeptCards();
     } catch (error) {
         console.error("Result Load Error:", error);
-        showToast("⚠️ 데이터 로드 실패. 네트워크 상태를 확인하세요.");
+        showToast("⚠️ 데이터 로드에 문제가 발생했습니다.");
     } finally {
         if(overlay) overlay.classList.remove('active');
     }
@@ -2397,16 +2628,40 @@ function renderResultDeptCards() {
     if(breadcrumb) breadcrumb.style.display = 'none';
     if(detailViewer) detailViewer.style.display = 'none';
     if(emptyState) emptyState.style.display = 'none';
-    if(statusText) statusText.innerHTML = '<h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px;">KOMIPO <span style="font-size:0.6rem; color:#94a3b8; font-weight:400; letter-spacing:0; vertical-align:middle;">v33.7.3-FINAL</span></h1>';
+    if(statusText) statusText.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+            <h1 style="color: var(--doing-blue); font-size: 1.8rem; font-weight: 900; letter-spacing: -1px; margin:0;">RECORDS</h1>
+            <button class="btn-refresh" onclick="openResultsView()" style="display:flex; align-items:center; gap:6px; padding:8px 16px; font-size:13px; background:#eff6ff; color:#3b82f6; border:1px solid #bfdbfe; border-radius:12px; cursor:pointer; font-weight:600; transition:all 0.2s;">
+                <i data-lucide="refresh-cw" style="width:16px; height:16px;"></i> 최신 정보로 갱신
+            </button>
+        </div>
+    `;
 
-    const depts = [...new Set(currentState.allLogs.map(log => log.부서명 || log.소속 || "미지정"))].filter(d => d).sort();
+    // [v34.0.24] 이름표나 순서에 관계없이, 행 데이터 중 부서명처럼 생긴 것을 자동 필터링 (가장 간단하고 확실한 방식)
+    const depts = [];
+    currentState.allLogs.forEach(log => {
+        // [v34.0.24] 어떤 칸(Key)이든 '제주_'로 시작하거나, 부서명 키가 있는 것을 수집
+        const values = Object.values(log);
+        const deptVal = log.부서명 || log.idx_0 || log.idx_1 || values.find(v => typeof v === 'string' && v.includes('제주_'));
+        if (deptVal && !depts.includes(deptVal)) depts.push(deptVal);
+    });
 
     if (depts.length === 0) {
-        container.innerHTML = '<div style="grid-column:1/-1; padding:40px; text-align:center; color:#94a3b8;">조회 가능한 기록이 없습니다.</div>';
+        container.innerHTML = `
+            <div style="grid-column:1/-1; padding:60px 20px; text-align:center;">
+                <div style="font-size:48px; margin-bottom:20px;">🔍</div>
+                <h3 style="color:#1e293b; margin-bottom:12px; font-weight:700;">조회 가능한 기록이 없습니다.</h3>
+                <div style="font-size:14px; color:#64748b; line-height:1.6; max-width:280px; margin:0 auto;">
+                    구글 시트에 데이터가 있는데 안 보인다면,<br>시트의 **'부서명'이 '제주_'로 시작**하는지 확인해 주세요.
+                </div>
+                <button onclick="openResultsView()" style="margin-top:24px; padding:12px 24px; background:var(--doing-blue); color:white; border:none; border-radius:12px; font-weight:600; cursor:pointer;">지금 다시 확인하기</button>
+            </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
         return;
     }
 
-    container.innerHTML = depts.map(dept => `
+    container.innerHTML = depts.sort().map(dept => `
         <div class="dept-banner-card" onclick="selectResultDept('${dept}')">
             <div class="dbc-icon" style="background:#eff6ff; color:#3b82f6;"><i data-lucide="building-2"></i></div>
             <div class="dbc-text">
@@ -2434,14 +2689,18 @@ function selectResultDept(dept) {
     }
     if(statusText) statusText.innerText = `[${dept}] 부서의 점검 리스트입니다.`;
 
-    const filteredLogs = currentState.allLogs.filter(log => (log.부서명 || log.소속) === dept);
+    // [v34.0.24] 부서 필터링 (어떤 칸에 있든 해당 부서명이면 포함)
+    const filteredLogs = currentState.allLogs.filter(log => Object.values(log).includes(dept));
     
     // 이 부서의 작업들을 그룹화 (날짜 + 작업명 + 점검자 기준)
     const taskGroups = {};
     filteredLogs.forEach(log => {
-        const date = log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상";
-        const worker = log.점검자 || log.평가자 || "미지정";
-        const taskName = log.작업명 || log.task_name || log.task || "내용 없음";
+        // [v34.0.24] 각 행에서 날짜, 작업자, 작업명을 지능적으로 추출
+        const values = Object.values(log);
+        const date = log.일시 || log.idx_0 || (values.find(v => typeof v === 'string' && v.includes(':')) || "날짜미상");
+        const worker = log.점검자 || log.idx_2 || log.idx_3 || "미지정";
+        const taskName = log.작업명 || log.idx_1 || log.idx_2 || "내용 없음";
+        
         const key = `${date}|${taskName}|${worker}`;
         if (!taskGroups[key]) taskGroups[key] = [];
         taskGroups[key].push(log);
@@ -2479,14 +2738,21 @@ function selectResultDept(dept) {
 
 function showResultDetailByGroup(groupKey) {
     const [date, task, worker] = groupKey.split('|');
+    
+    // [v34.0.27] 상세 조회 시에도 목록 생성 시와 100% 동일한 유연한 매칭 로직 적용
     const filtered = currentState.allLogs.filter(log => {
-        const logDate = log.일시 ? new Date(log.일시).toLocaleDateString() : "날짜미상";
-        const logWorker = log.점검자 || log.평가자 || "미지정";
-        const logTask = log.작업명 || log.task_name || log.task || "내용 없음";
-        return (log.부서명 || log.소속) === currentState.currentResultDept && 
-               logTask === task && 
-               logWorker === worker &&
-               logDate === date;
+        const values = Object.values(log);
+        
+        // 1. 부서 일치 확인
+        const isDeptMatch = values.includes(currentState.currentResultDept);
+        if (!isDeptMatch) return false;
+        
+        // 2. 행 데이터에서 날짜, 작업명, 점검자 재추출 (목록 생성 시와 동일한 규칙)
+        const logDate = log.일시 || log.idx_0 || (values.find(v => typeof v === 'string' && v.includes(':')) || "날짜미상");
+        const logWorker = log.점검자 || log.idx_2 || log.idx_3 || "미지정";
+        const logTask = log.작업명 || log.idx_1 || log.idx_2 || "내용 없음";
+        
+        return logDate === date && logTask === task && logWorker === worker;
     });
 
     if (filtered.length === 0) {
@@ -2530,7 +2796,7 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
 
     // 단계별(Step Name)로 로그 그룹화
     const groupedLogs = logs.reduce((acc, log) => {
-        const step = log.작업단계 || "점검 단계";
+        const step = log.작업단계 || log.step_name || "점검 단계";
         if (!acc[step]) acc[step] = [];
         acc[step].push(log);
         return acc;
@@ -2575,13 +2841,21 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
 
                     <div style="display: flex; flex-direction: column; gap: 15px;">
                         ${groupedLogs[stepName].map((l, lIdx) => {
-                            const curScore = parseInt(l.현재_위험도 || l.현재위험도) || 0;
-                            const resScore = parseInt(l.잔류_위험도 || l.잔류위험도) || 0;
+                            // [v34.0.28] 위험도 자동 계산 엔진: 시트 이름표가 틀려도 (빈도 x 강도)로 자동 산출
+                            const curF = parseInt(l.현재_빈도 || l.current_frequency || 1) || 0;
+                            const curS = parseInt(l.현재_강도 || l.current_severity || 1) || 0;
+                            let curScore = parseInt(l.현재_위험도 || l.현재위험도 || l.위험도 || l.current_score || l.current_risk) || 0;
+                            if (curScore === 0 && curF > 0 && curS > 0) curScore = curF * curS;
+
+                            const resF = parseInt(l.잔류_빈도 || l.residual_frequency || 1) || 0;
+                            const resS = parseInt(l.잔류_강도 || l.residual_severity || 1) || 0;
+                            let resScore = parseInt(l.잔류_위험도 || l.잔류위험도 || l.위험도_1 || l.residual_score || l.residual_risk) || 0;
+                            if (resScore === 0 && resF > 0 && resS > 0) resScore = resF * resS;
 
                             return `
                             <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
                                 <div style="background: #f8fafc; padding: 12px 18px; border-bottom: 1.5px solid #f1f5f9; font-weight: 800; color: #475569; font-size: 0.9rem;">
-                                    <span style="color: var(--doing-blue);">항목 ${lIdx + 1}.</span> ${l.위험요인 || "내용 없음"}
+                                    <span style="color: var(--doing-blue);">항목 ${lIdx + 1}.</span> ${l.위험요인 || l.hazard || "내용 없음"}
                                 </div>
                                 
                                 <div style="padding: 18px; display: flex; flex-direction: column; gap: 15px;">
@@ -2592,12 +2866,12 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                                                 <i data-lucide="shield-check" style="width:14px;"></i> 현재 안전조치
                                             </div>
                                             <div style="display: flex; align-items: center; gap: 4px;">
-                                                <span style="font-size:0.6rem; padding:2px 6px; background:#f1f5f9; border-radius:6px; color:#475569; font-weight:800;">빈 ${l.현재_빈도 || 1}</span>
-                                                <span style="font-size:0.6rem; padding:2px 6px; background:#f1f5f9; border-radius:6px; color:#475569; font-weight:800;">강 ${l.현재_강도 || 1}</span>
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:#f1f5f9; border-radius:6px; color:#475569; font-weight:800;">빈 ${curF}</span>
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:#f1f5f9; border-radius:6px; color:#475569; font-weight:800;">강 ${curS}</span>
                                                 ${getReportScoreBadge(curScore)}
                                             </div>
                                         </div>
-                                        <div style="font-size: 0.92rem; color: #1e293b; line-height: 1.6; white-space: pre-line; font-weight: 600; padding-left: 2px;">${l.현재안전조치 || "없음"}</div>
+                                        <div style="font-size: 0.92rem; color: #1e293b; line-height: 1.6; white-space: pre-line; font-weight: 600; padding-left: 2px;">${l.현재안전조치 || l.current_measures || l.current_checked || "이상 없음"}</div>
                                     </div>
 
                                     <!-- Section 2: 개선대책 -->
@@ -2607,12 +2881,12 @@ function renderDetailedCardReport(logs, containerId, isPreview = false) {
                                                 <i data-lucide="wrench" style="width:14px;"></i> 추가 개선대책
                                             </div>
                                             <div style="display: flex; align-items: center; gap: 4px;">
-                                                <span style="font-size:0.6rem; padding:2px 6px; background:white; border-radius:6px; color:#059669; font-weight:800; border:1px solid #bbf7d0;">빈 ${l.잔류_빈도 || 1}</span>
-                                                <span style="font-size:0.6rem; padding:2px 6px; background:white; border-radius:6px; color:#059669; font-weight:800; border:1px solid #bbf7d0;">강 ${l.잔류_강도 || 1}</span>
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:white; border-radius:6px; color:#059669; font-weight:800; border:1px solid #bbf7d0;">빈 ${resF}</span>
+                                                <span style="font-size:0.6rem; padding:2px 6px; background:white; border-radius:6px; color:#059669; font-weight:800; border:1px solid #bbf7d0;">강 ${resS}</span>
                                                 ${getReportScoreBadge(resScore)}
                                             </div>
                                         </div>
-                                        <div style="font-size: 0.92rem; color: #166534; line-height: 1.6; white-space: pre-line; font-weight: 700; padding-left: 2px;">${l.개선대책 || "없음"}</div>
+                                        <div style="font-size: 0.92rem; color: #166534; line-height: 1.6; white-space: pre-line; font-weight: 700; padding-left: 2px;">${l.개선대책 || l.improvements_checked || l.improvement_measures || "추가 개선사항 없음"}</div>
                                     </div>
                                 </div>
                             </div>
