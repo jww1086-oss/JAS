@@ -368,7 +368,16 @@
                     </div>
 
                     <div style="background: #fafafa; border: 2.5px dashed #e2e8f0; border-radius: 20px; position: relative; height: 260px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-                        <canvas id="signature-pad" style="width: 100%; height: 100%; touch-action: none; cursor: url('https://cdn-icons-png.flaticon.com/512/0/80.png') 0 32, crosshair;"></canvas>
+                        <div class="signature-wrapper" id="signature-wrapper-final">
+                            <div class="signature-overlay" id="signature-overlay-final" onclick="activateSignature('final')">
+                                <div class="overlay-text">
+                                    <i data-lucide="pen-tool"></i>
+                                    나의 서명 시작하기 (터치)
+                                </div>
+                                <div style="margin-top:10px; font-size:0.75rem; color:#94a3b8; font-weight:700;">평소에는 이 위를 밀어 스크롤 하세요</div>
+                            </div>
+                            <canvas id="signature-pad" style="width: 100%; height: 100%; touch-action: none; cursor: url('https://cdn-icons-png.flaticon.com/512/0/80.png') 0 32, crosshair;"></canvas>
+                        </div>
                         <div id="sig-placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #cbd5e1; font-size: 1rem; pointer-events: none; font-weight: 800; letter-spacing: 1px; opacity: 0.6;">
                             이곳에 정자로 서명해 주세요
                         </div>
@@ -488,8 +497,16 @@
                         </div>
                         <div>
                             <label style="display:block; font-weight:800; color:#475569; font-size:0.85rem; margin-bottom:8px;">점검자 서명</label>
-                            <div style="border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#f8fafc;">
-                                <canvas id="tbm-signature-pad" style="width:100%; height:150px; cursor:crosshair;"></canvas>
+                            <div style="border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#f8fafc; position: relative;">
+                                <div class="signature-wrapper" id="signature-wrapper-tbm" style="height: 150px;">
+                                    <div class="signature-overlay" id="signature-overlay-tbm" onclick="activateSignature('tbm')">
+                                        <div class="overlay-text">
+                                            <i data-lucide="edit-3"></i>
+                                            TBM 서명 시작 (터치)
+                                        </div>
+                                    </div>
+                                    <canvas id="tbm-signature-pad" style="width:100%; height:150px; cursor:crosshair;"></canvas>
+                                </div>
                             </div>
                             <button type="button" onclick="clearTBMSignature()" 
                                     style="margin-top:8px; background:none; border:none; color:#94a3b8; font-size:0.75rem; font-weight:700; cursor:pointer;">

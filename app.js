@@ -350,6 +350,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
+// [v34.1.8] 서명판 스크롤 보호 해제 및 활성화 로직
+function activateSignature(type) {
+    const overlayId = type === 'final' ? 'signature-overlay-final' : 'signature-overlay-tbm';
+    const overlay = document.getElementById(overlayId);
+    if (!overlay) return;
+
+    // 부드럽게 사라지는 효과
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        
+        // 서명판이 가려져 있었다면 리사이징 강제 유도 (좌표 어긋남 방지)
+        const canvasId = type === 'final' ? 'signature-pad' : 'tbm-signature-pad';
+        const canvas = document.getElementById(canvasId);
+        if (canvas) {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+        }
+        
+        showToast("✍️ 서명 모드가 활성화되었습니다. (화면 고정)");
+    }, 200);
+}
 
 function initLucide() { if (window.lucide) window.lucide.createIcons(); }
 

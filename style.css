@@ -372,8 +372,52 @@ body {
 .step-progress-bar-container { height: 6px; background: #f1f5f9; border-radius: 10px; overflow: hidden; }
 .step-progress-bar-fill { height: 100%; background: var(--doing-blue); transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); width: 25%; }
 
-/* Signature */
-.signature-container { border: 2px solid #f1f5f9; border-radius: 20px; background: #f8fafc; overflow: hidden; margin-bottom: 15px; height: 200px; }
+/* [v34.1.8] Signature Pad Scroll Protection */
+.signature-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    touch-action: auto; /* 기본적으로 스크롤 허용 */
+}
+
+.signature-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(248, 250, 252, 0.4);
+    backdrop-filter: blur(2px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 18px;
+}
+
+.signature-overlay:active {
+    background: rgba(248, 250, 252, 0.6);
+}
+
+.signature-overlay .overlay-text {
+    background: white;
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-weight: 900;
+    font-size: 0.9rem;
+    color: var(--doing-indigo);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    border: 2px solid var(--doing-indigo);
+}
+
 #signature-pad { width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 
 /* Universal Utils */
