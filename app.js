@@ -1,5 +1,5 @@
 function updateDate(){const n=new Date();const d=n.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});const t=n.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});const e=document.getElementById("current-date");if(e)e.innerText=`${d} ${t}`}
-console.log("%c🚀 KOMIPO Smart Safety System v34.0.4-LAYOUT_FIX Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
+console.log("%c🚀 KOMIPO Smart Safety System v34.4.3-ULTRA Loaded", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
 /**
  * DOING-KOSHA Smart Safety System - 100% Master Data Sync (Clean Version)
  */
@@ -989,7 +989,7 @@ function preparePreviewData() {
         if ((risk.작업명||"").trim() !== (currentState.selectedTask||"").trim()) return;
 
         const hazardHash = getHash((risk.위험요인 || "").trim());
-        const stepName = (risk.작업단계 || "").trim();
+        const stepName = (risk.작업단계 || risk.작업준비 || "").trim(); // [v34.3.5-ULTRA] '작업준비' 필드 상시 반영
         const stepHash = getHash(stepName);
         const key = `${taskHash}-${stepHash}-${hazardHash}`;
         
@@ -1123,12 +1123,13 @@ function preparePreviewData() {
     // Map을 최종 로그 배열로 변환
     const logs = Array.from(logMap.values()).map(l => ({
         ...l,
+        작업단계: (l.작업단계 || "").trim(), // [v34.3.2] 명시적 문자열 화 및 공백 제거
         현재안전조치: l.currentMeasuresSet.size > 0 ? Array.from(l.currentMeasuresSet).join('\n') : "이상 없음",
         개선대책: l.improveMeasuresSet.size > 0 ? Array.from(l.improveMeasuresSet).join('\n') : 
                   (l.residual_score < l.current_score ? "작업 전 위험요인 공유 및 안전수칙 준수 여부 확인" : "추가 개선사항 없음")
     }));
 
-    console.log(`✅ [v34.2.0-ULTRA] 데이터 집약 및 중복 제거 완료 (${logs.length}건)`);
+    console.log(`✅ [v34.4.3-ULTRA] 데이터 집약 및 중복 제거 완료 (${logs.length}건)`);
     return logs;
 }
 
@@ -1313,7 +1314,7 @@ function fetchJSONP(url) {
 }
 
 async function fetchInitialData() {
-    console.log("🚀 [v34.0.4-LAYOUT_FIX] 하이브리드 동기화 가동...");
+    console.log("🚀 [v34.4.3-ULTRA] 하이브리드 동기화 가동...");
     updateNetworkStatus(false, '동기화 중');
 
     try {
@@ -1396,7 +1397,7 @@ function processRiskData(riskData) {
             allRisks.push({
                 부서명: cleanValue(getV(item, ["부서명", "dept"]) || "미지정"),
                 작업명: cleanValue(getV(item, ["작업명", "task"]) || "미정의 작업"),
-                작업단계: cleanValue(getV(item, ["작업단계", "step"]) || "미정의 단계"),
+                작업단계: cleanValue(getV(item, ["작업단계", "작업준비", "step"]) || "미정의 단계"), // [v34.3.4-ULTRA] '작업준비' 매핑 추가
                 위험요인: h,
                 current_measures: currentMeasures,
                 improvement_measures: improvementMeasures,
@@ -2539,7 +2540,9 @@ async function submitLog() {
             부서명: activeDept,
             department: activeDept,
             작업명: l.작업명 || taskNameFromLog,
-            step: l.작업단계 || l.step || "",
+            step_name: (l.작업단계 || l.step || (r ? (r.작업단계 || r.작업준비 || r.step || "") : "") || "").trim() || (currentState.selectedStep || "상세 단계 없음"), // [v34.4.3-ULTRA] 유저 앱스크립트(step_name) 완벽 매핑
+            step: (l.작업단계 || l.step || (r ? (r.작업단계 || r.작업준비 || r.step || "") : "") || "").trim() || (currentState.selectedStep || "상세 단계 없음"),
+            "작업단계": (l.작업단계 || "").trim() || (currentState.selectedStep || "상세 단계 없음"), 
             hazard: l.위험요인 || l.hazard || "",
             current_measures: l.현재안전조치 || l.current_measures || "이상 없음",
             improvements_checked: l.개선대책 || l.improvements_checked || "추가 개선사항 없음",
@@ -2609,7 +2612,7 @@ async function submitLog() {
             body: JSON.stringify(payload),
             headers: { 'Content-Type': 'text/plain' }
         }).then(response => {
-            console.log("✅ 데이터 전송 성공 (v34.0.17)");
+            console.log("✅ 데이터 전송 성공 (v34.4.3-ULTRA)");
             showToast("✅ 구글 시트 전송이 완료되었습니다."); 
             
             // [v34.0.10] 제출 성공 시 임시저장 데이터 삭제
