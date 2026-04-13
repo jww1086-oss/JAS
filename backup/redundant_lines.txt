@@ -1,0 +1,26 @@
+﻿    // [v34.0.5] ?댁쟾 ?곹깭 諛?湲곗〈 ?됯????먮룞 蹂듭썝 (State Hydration)
+    hydrateStateFromLogs(task);
+    
+    const container = document.getElementById('selection-container');
+    const workerCard = document.getElementById('worker-input-card-wrap');
+    if (container) container.style.display = 'none';
+    if (workerCard) workerCard.style.display = 'block';
+
+    const header = document.getElementById('step1-header');
+    if (header) {
+        header.querySelector('h2').innerText = "?됯????깅챸 ?낅젰";
+        header.querySelector('p').innerText = "?됯????깅챸??異붽? ?먮뒗 ?좏깮?섏꽭??";
+    }
+
+    const homeBtn = document.getElementById('step1-home-btn');
+    if (homeBtn) {
+        homeBtn.style.display = 'grid';
+        homeBtn.style.gridTemplateColumns = '1fr 2fr';
+        homeBtn.style.gap = '12px';
+        homeBtn.innerHTML = `
+            <button class="btn btn-secondary" onclick="handleStep1Back()">?댁쟾?④퀎</button>
+            <button class="btn btn-primary" onclick="nextStep(2)">?ㅼ쓬?④퀎</button>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}

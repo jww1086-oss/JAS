@@ -98,6 +98,12 @@ body {
 
 
 /* Dashboard Grid */
+.phase-section {
+    display: none;
+}
+.phase-section.active {
+    display: block;
+}
 .main-banner { position: relative; width: calc(100% + 40px); margin: 0 -20px; height: 110px; overflow: hidden; border-radius: 0 0 32px 32px; }
 .main-banner img { width: 100%; height: 100%; object-fit: cover; }
 .banner-overlay { position: absolute; bottom: 12px; left: 24px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
@@ -188,6 +194,23 @@ body {
 .icon-box.color-teal { background: #f0fdfa; color: #0d9488; }
 .icon-box.color-green { background: #f0fdf4; color: #16a34a; }
 .icon-box.color-orange-light { background: #fffbeb; color: #d97706; }
+
+/* Inline SVG Icon Styling [v34.7.1] */
+.icon-box svg, .dbc-icon svg {
+    width: 28px;
+    height: 28px;
+    stroke-width: 2.5px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.grid-card:hover .icon-box svg {
+    transform: scale(1.15) rotate(5deg);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.btn-choice-card:hover svg {
+    transform: scale(1.1) translateX(3px);
+}
 
 /* Buttons & Interactive Elements (Premium Update) */
 .btn { 
@@ -417,6 +440,9 @@ body {
     pointer-events: none;
     border: 2px solid var(--doing-indigo);
 }
+
+/* Premium SVG Icon Style */
+.icon-premium { stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
 
 #signature-pad { width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 
@@ -767,4 +793,185 @@ body {
 }
 
 /* Remove legacy welcome/banner styles */
-.welcome-overlay, .welcome-card, .main-banner { display: none !important; }
+/* .welcome-overlay, .welcome-card, .main-banner { display: none !important; } */
+/* ----------------------------------------------------
+   [v34.7.2] Premium Result Card & Banner Styles 
+   ---------------------------------------------------- */
+
+.result-banner-card {
+    background: white;
+    border: 1.5px solid #f1f5f9;
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.result-banner-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--doing-blue);
+    box-shadow: 0 10px 20px rgba(14, 165, 233, 0.1);
+}
+
+.rbc-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.rbc-text { flex: 1; }
+.rbc-text .title { font-weight: 900; color: #1e293b; font-size: 1.05rem; margin-bottom: 2px; }
+.rbc-text .count-tag { font-size: 0.75rem; color: #64748b; font-weight: 700; }
+.rbc-arrow { color: #cbd5e1; }
+
+.premium-result-card {
+    background: white;
+    border-radius: 24px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1.8px solid #f1f5f9;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.02);
+    transition: 0.3s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.premium-result-card:active { transform: scale(0.97); }
+
+.premium-result-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 6px; height: 100%;
+    background: var(--doing-blue);
+    opacity: 0.8;
+}
+
+.prc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.prc-date { font-size: 0.75rem; color: #94a3b8; font-weight: 800; }
+.prc-badge {
+    background: #ecfdf5;
+    color: #10b981;
+    font-size: 0.65rem;
+    font-weight: 900;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid #a7f3d0;
+}
+
+.prc-title {
+    font-size: 1.15rem;
+    font-weight: 950;
+    color: #1e293b;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+    word-break: keep-all;
+}
+
+.prc-worker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.prc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 1.5px dashed #f1f5f9;
+}
+
+.prc-stats { font-size: 0.8rem; color: #475569; font-weight: 700; }
+.prc-stats strong { color: var(--doing-indigo); font-weight: 950; }
+
+.prc-btn {
+    font-size: 0.85rem;
+    font-weight: 900;
+    color: var(--doing-blue);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Toast styles */
+#toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(15, 23, 42, 0.95);
+    color: white;
+    padding: 14px 28px;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    z-index: 9999;
+    transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+#toast.active { transform: translateX(-50%) translateY(0); }
+/* ----------------------------------------------------
+   [v34.7.2] Zero-Wait Skeleton & Shimmer Styles 
+   ---------------------------------------------------- */
+.skeleton-card {
+    background: #f1f5f9;
+    background-image: linear-gradient(
+        90deg, 
+        #f1f5f9 0px, 
+        #f8fafc 40px, 
+        #f1f5f9 80px
+    );
+    background-size: 600px 100%;
+    animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes shimmer {
+    0% { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
+}
+
+.shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    background-size: 200% 100%;
+    animation: shimmer-swipe 1.5s infinite;
+}
+
+@keyframes shimmer-swipe {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* 추가 유틸리티: 부드러운 화살표 애니메이션 */
+.tbc-arrow, .rbc-arrow, .dbc-arrow {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.task-banner-card:hover .tbc-arrow,
+.result-banner-card:hover .rbc-arrow,
+.dept-banner-card:hover .dbc-arrow {
+    transform: translateX(5px) scale(1.1);
+}

@@ -55,20 +55,30 @@ function setupDatabase() {
 /**
  * GET 요청 처리: 초기 데이터 로드
  */
+/**
+ * GET 요청 처리: 초기 데이터 및 실시간 이력 로드
+ * '개발_표준_및_규칙.md' Section 3.2 준수
+ */
 function doGet(e) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const userSheet = ss.getSheetByName(SHEET_NAMES.USERS);
   const riskSheet = ss.getSheetByName(SHEET_NAMES.RISK_MASTER);
+  const logSheet = ss.getSheetByName(SHEET_NAMES.LOGS);
   
-  if (!userSheet || !riskSheet) {
+  const type = e.parameter.type || "initial";
+  
+  if (type === "history") {
+    // [v34.7.0] 최신 50개의 점검 이력 실시간 fetch
     return ContentService.createTextOutput(JSON.stringify({
-      error: "데이터베이스가 설정되지 않았습니다. setupDatabase를 실행하세요."
+      history: getSheetData(logSheet).reverse().slice(0, 50)
     })).setMimeType(ContentService.MimeType.JSON);
   }
   
   return ContentService.createTextOutput(JSON.stringify({
     users: getSheetData(userSheet),
-    risks: getSheetData(riskSheet)
+    risks: getSheetData(riskSheet),
+    // 초기 로딩 시에도 최신 로그 5건 포함
+    recentLogs: getSheetData(logSheet).reverse().slice(0, 5)
   })).setMimeType(ContentService.MimeType.JSON);
 }
 

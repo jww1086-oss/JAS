@@ -1,13 +1,14 @@
 /**
  * KOMIPO 스마트 안전 시스템 - Google Apps Script (v32.0-ULTIMATE)
- * 1. 실제 사용 중인 시트 이름과 완벽 동기화 (위험성평가실시, TBM실시, 개선대책실행계획서)
+ * 1. 시트 이름 완벽 동기화 (위험성평가실시, TBM실시, 개선대책실행계획서)
  * 2. 사진 및 서명 이미지 자동 삽입 (Base64 to Blob)
- * 3. 행 높이 자동 조절 기능 포함
+ * 3. 행 높이 및 컬럼 너비 자동 최적화
+ * 4. [v32.1] 작업단계(step_name) 폴백 강화
  */
 
 const SPREADSHEET_ID = "1_qLqeCtpr8D66oj7TjNwqvvUNa4xU7m_QVpdyzKryeE";
 
-// [핵심] 시트 이름 설정 (사용자 시트와 동일하게 설정됨)
+// [중요] 시트 이름 설정 (사용자 시트 탭 이름과 정확히 일치해야 함)
 const SHEET_NAMES = {
   MASTER: "위험성평가자료",
   USERS: "평가자명단",
@@ -27,14 +28,13 @@ function doGet(e) {
     else if (type === "logs") sheetName = SHEET_NAMES.LOGS;
     
     const sheet = ss.getSheetByName(sheetName);
-    if (!sheet) return returnJSONP([], callback); // 시트 없으면 빈 배열
+    if (!sheet) return returnJSONP([], callback);
     
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return returnJSONP([], callback);
 
     const headers = data[0];
     const rows = data.slice(1);
-    
     const result = rows.map(row => {
       let obj = {};
       headers.forEach((header, i) => {
@@ -42,7 +42,6 @@ function doGet(e) {
       });
       return obj;
     });
-    
     return returnJSONP(result, callback);
   } catch (err) {
     return returnJSONP({ status: "error", message: err.message }, e.parameter.callback);
@@ -66,14 +65,9 @@ function doPost(e) {
         tbmSheet.appendRow(["일시", "부서명", "작업명", "점검자", "체크항목수", "서명", "상태"]);
         tbmSheet.getRange(1, 1, 1, 7).setBackground("#eff6ff").setFontWeight("bold");
       }
-      
       const lastRow = tbmSheet.getLastRow() + 1;
       tbmSheet.appendRow([now, dept, task, worker, params.checkedCount || 0, "", "완료"]);
-      
-      // 서명 이미지 삽입
-      if (params.signature) {
-        insertImageSafe(tbmSheet, params.signature, lastRow, 6);
-      }
+      if (params.signature) insertImageSafe(tbmSheet, params.signature, lastRow, 6);
       return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -91,32 +85,19 @@ function doPost(e) {
 
     if (params.logs && Array.isArray(params.logs)) {
       params.logs.forEach(log => {
-        // A~P (16컬럼) 매핑 (메모리.md v25.6 표준 준수)
-        var rowData = [
-            new Date(),             // A: 일시
-            params.department,      // B: 부서명
-            params.task,            // C: 작업명
-            params.worker,          // D: 점검자
-            log.step || "",         // E: 작업단계
-            log.hazard || "",       // F: 위험요인
-            log.current_measures || "", // G: 현재안전조치
-            log.improvements_checked || "", // H: 개선대책
-            log.current_frequency || "", // I: 현재_빈도
-            log.current_severity || "",  // J: 현재_강도
-            log.current_score || "",     // K: 현재_위험도
-            log.residual_frequency || "", // L: 잔류_빈도
-            log.residual_severity || "",  // M: 잔류_강도
-            log.residual_score || "",     // N: 잔류_위험도
-            "",                     // O: 사진URL (이미지 개체로 대체)
-            ""                      // P: 서명URL (이미지 개체로 대체)
-        ];
+        const lastRow = logSheet.getLastRow() + 1;
+        // [v35.8.8 호환 고도화] step_name 뿐만 아니라 다양한 키 지원
+        const stepValue = (log.step_name || log.step || log.작업단계 || "").toString().trim() || "작업진행";
         
-        var lastRow = logSheet.getLastRow() + 1;
-        logSheet.appendRow(rowData);
-        
-        // 이미지 삽입 (O열: 사진, P열: 서명)
-        if (log.photo) insertImageSafe(logSheet, log.photo, lastRow, 15); // O열
-        if (params.signature) insertImageSafe(logSheet, params.signature, lastRow, 16); // P열
+        logSheet.appendRow([
+          now, dept, task, worker, stepValue, log.hazard || "", 
+          log.current_measures || "", log.improvements_checked || "",
+          log.current_frequency || 1, log.current_severity || 1, log.current_score || 1,
+          log.residual_frequency || 1, log.residual_severity || 1, log.residual_score || 1,
+          "", ""
+        ]);
+        if (params.photo) insertImageSafe(logSheet, params.photo, lastRow, 15);
+        if (params.signature) insertImageSafe(logSheet, params.signature, lastRow, 16);
       });
     }
 
@@ -128,12 +109,9 @@ function doPost(e) {
         improveSheet.appendRow(["기록일시", "부서명", "작업명", "위험요인", "개선대책내용", "담당자", "상태", "현장사진"]);
         improveSheet.getRange(1, 1, 1, 8).setBackground("#fff7ed").setFontWeight("bold");
       }
-      
       params.improvement_plan.forEach(plan => {
         const lastRow = improveSheet.getLastRow() + 1;
         improveSheet.appendRow([now, dept, task, plan.hazard, plan.improvement_measure, worker, "진행중", ""]);
-        
-        // 개선 대책 관련 사진이 있다면 삽입 (전체 사진 활용)
         if (params.photo) insertImageSafe(improveSheet, params.photo, lastRow, 8);
       });
     }
@@ -144,16 +122,13 @@ function doPost(e) {
   }
 }
 
-/** [Helper] Base64 이미지를 시트 셀에 실제 그림으로 삽입 */
+/** [Helper] 이미지를 시트에 실제 그림으로 삽입 (셀 맞춤) */
 function insertImageSafe(sheet, base64Str, row, col) {
   try {
     if (!base64Str || !base64Str.includes(",")) return;
-    const blob = Utilities.newBlob(Utilities.base64Decode(base64Str.split(",")[1]), "image/png", "upload_" + row + "_" + col + ".png");
-    
-    // 행 높이 조절 (이미지가 잘 보이도록)
-    sheet.setRowHeight(row, 80);
-    sheet.setColumnWidth(col, 120);
-    
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64Str.split(",")[1]), "image/png", "img_" + row + "_" + col + ".png");
+    sheet.setRowHeight(row, 80); // 행 높이 최적화
+    sheet.setColumnWidth(col, 120); // 컬럼 너비 최적화
     sheet.insertImage(blob, col, row, 5, 5).setHeight(70).setWidth(110);
   } catch (e) {
     sheet.getRange(row, col).setValue("이미지 삽입 실패");

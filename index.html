@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMIPO | 스마트 안전 점검 시스템</title>
+    <title>KO-SFA | KOMIPO 스마트 안전점검 v35.8.5</title>
     
     <!-- SEO & Branding -->
-    <meta name="description" content="한국중부발전 스마트 안전 점검 및 위험성 평가 시스템">
+    <meta name="description" content="KOMIPO 스마트 안전점검 - ULTIMATE POWER v35.8.5">
     <meta property="og:title" content="KOMIPO 스마트 안전 점검">
     <meta property="og:description" content="현장 중심의 실시간 위험성 평가 및 안전 조치 확인 시스템">
     <meta property="og:image" content="https://jungbu.vercel.app/assets/icon.png">
@@ -29,8 +29,18 @@
     <!-- PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <link rel="stylesheet" href="style.css?v=34.0.3">
+    <script src="https://cdn.jsdelivr.net/npm/fetch-jsonp@1.1.3/build/fetch-jsonp.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css?v=35.6.7">
+    
+    <!-- Critical Data (Native Loader) -->
+    <script src="master_data.js?v=35.8.5"></script>
+    <script src="pre_info_data.js?v=35.8.5"></script>
+
+
 </head>
+
+
 <body>
 
     <div class="app-shell">
@@ -43,12 +53,21 @@
                 </div>
                 
                 <div class="logo-area" style="margin-left: 0;">
-                    <h1 class="logo-main">KOMIPO <span class="header-v-label">v34.4.3</span></h1>
+                    <h1 class="logo-main">KOMIPO <span class="header-v-label">v35.8.5</span></h1>
                     <p class="logo-sub">한국중부발전</p>
                 </div>
+
+
+
+
+
+
+
+
+
                 
                 <div class="status-panel" style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                    <div class="header-date" style="font-size: 0.7rem; font-weight: 850; color: #94a3b8; letter-spacing: -0.5px;">2026.04.06 MON</div>
+                    <div class="header-date" style="font-size: 0.7rem; font-weight: 850; color: #94a3b8; letter-spacing: -0.5px;">2026.04.12 SUN</div>
                     <div id="status-indicator" class="status-indicator online">
                         <div class="dot"></div>
                         <span id="status-text">ONLINE</span>
@@ -70,17 +89,21 @@
                     <div class="step-node" data-step="3"><span>3</span><label>개선</label></div>
                     <div class="step-node" data-step="4"><span>4</span><label>서명</label></div>
                 </div>
-                <!-- [NEW] Current Context Indicator -->
-                <div id="context-banner" style="display: none; background: rgba(224, 242, 254, 0.4); padding: 10px 14px; border-radius: 12px; margin-top: 18px; font-weight: 800; font-size: 0.85rem; border: 1.5px solid rgba(14, 165, 233, 0.15); align-items: center; justify-content: center; gap: 8px;">
-                    <i data-lucide="map-pin" style="width:16px; color:#0284c7;"></i>
-                    <span id="context-dept" style="color: #0369a1;">---</span> 
-                    <i data-lucide="chevron-right" style="width:14px; color:#7dd3fc;"></i> 
-                    <span id="context-task" style="color: #0c4a6e;">---</span>
-                </div>
             </div>
 
+            <!-- [v35.8.5] 독립된 최단말 헤더 배너 (디자인 복구 완료) -->
+            <div id="context-banner" style="display: none; background: rgba(224, 242, 254, 0.5); padding: 12px 14px; border-radius: 12px; margin: 0 14px 18px 14px; font-weight: 800; font-size: 0.85rem; border: 1.8px solid rgba(14, 165, 233, 0.2); align-items: center; justify-content: center; gap: 8px; backdrop-filter: blur(8px);">
+
+                <i data-lucide="map-pin" style="width:16px; color:#0284c7;"></i>
+                <span id="context-dept" style="color: #0369a1;">---</span> 
+                <i id="context-separator" data-lucide="chevron-right" style="width:14px; color:#7dd3fc;"></i> 
+                <span id="context-task" style="color: #0c4a6e;">---</span>
+            </div>
+
+
+
             <!-- Dashboard Section -->
-            <section id="dashboard" class="phase active">
+            <section id="step-home" class="phase-section active">
                 <!-- Visual Banner -->
                 <div class="main-banner">
                     <img src="https://images.unsplash.com/photo-1542382257-80dedb725088?auto=format&fit=crop&q=80&w=600" alt="Power Plant">
@@ -89,60 +112,74 @@
                     </div>
                 </div>
 
+
+                <!-- [NEW] Draft Resume Area -->
+                <div id="draft-selection-container" style="display: none; padding: 0 20px; margin-bottom: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-left: 5px;">
+                        <span style="font-size: 0.9rem; font-weight: 850; color: var(--doing-indigo); display: flex; align-items: center; gap: 6px;">
+                            <i data-lucide="clock-rewind" style="width:18px;"></i> 작성 중인 평가 이어하기
+                        </span>
+                        <span class="hi-badge" style="background: var(--doing-indigo); color: white; font-size: 0.65rem; padding: 2px 8px; border-radius: 20px;">DRAFT</span>
+                    </div>
+                    <div id="draft-list" class="horizontal-scroll-list" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
+                        <!-- JS Dynamic -->
+                    </div>
+                </div>
+
                 <!-- Grid Menu -->
                 <div class="doing-grid">
-                    <div class="grid-card" onclick="switchPhase('step-choice')">
+                    <div class="grid-card" onclick="startAssessment()">
                         <div class="icon-box color-blue">
-                            <i data-lucide="shield-alert"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-alert"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                         </div>
                         <span>위험성<br>평가</span>
                     </div>
                     <div class="grid-card" onclick="openTBMView()">
                         <div class="icon-box" style="background:#e0f2fe; color:#0369a1;">
-                            <i data-lucide="message-square"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                         </div>
                         <span>TBM</span>
                     </div>
 
                     <div class="grid-card">
                         <div class="icon-box color-purple">
-                            <i data-lucide="clock"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-octagon-alert"><path d="M12 8v4"/><path d="M12 16h.01"/><path d="M4.352 4.352a5.83 5.83 0 0 1 8.293 0l8.293 8.293a5.83 5.83 0 0 1 0 8.293l-8.293 8.293a5.83 5.83 0 0 1-8.293 0L4.352 12.645a5.83 5.83 0 0 1 0-8.293z"/></svg>
                         </div>
                         <span>작업<br>중지권</span>
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-orange">
-                            <i data-lucide="users"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         </div>
                         <span>종사자<br>의견</span>
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-pink-light">
-                            <i data-lucide="search"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
                         <span>아차<br>사고</span>
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-blue-light">
-                            <i data-lucide="git-branch"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-git-branch"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="9" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
                         </div>
                         <span>비상대응<br>매뉴얼</span>
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-teal">
-                            <i data-lucide="folder"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></svg>
                         </div>
                         <span>SOP<br>표준작업절차</span>
                     </div>
                     <div class="grid-card">
                         <div class="icon-box color-green">
-                            <i data-lucide="monitor"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-monitor"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
                         </div>
                         <span>PTW<br>작업허가서</span>
                     </div>
                     <div class="grid-card" onclick="switchPhase('step-history')">
                         <div class="icon-box color-orange-light">
-                             <i data-lucide="history"></i>
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-history"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
                         </div>
                         <span>나의<br>제출내역</span>
                     </div>
@@ -150,7 +187,7 @@
             </section>
             
             <!-- Phase 0: Choice (Conduct vs Results) -->
-            <section id="step-choice" class="phase">
+            <section id="step-choice" class="phase-section">
                 <div class="section-header">
                     <h2>위험성평가</h2>
                     <p>수행하실 업무를 선택해 주세요.</p>
@@ -159,7 +196,7 @@
                 <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 2rem;">
                     <button class="btn-choice-card assessment" onclick="startAssessment()">
                         <div class="icon-box color-blue" style="background: #e0f2fe; color: #0369a1;">
-                            <i data-lucide="edit-3"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit-3"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                         </div>
                         <div style="text-align: left;">
                             <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-indigo);">위험성평가 실시</div>
@@ -169,7 +206,7 @@
                     
                     <button class="btn-choice-card results" onclick="openResultsView()">
                         <div class="icon-box color-green" style="background: #f0fdf4; color: #15803d;">
-                            <i data-lucide="file-search"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-search"><path d="M4 22V4a2 2 0 0 1 2-2h8.5L18 5.5V11"/><path d="M14 2v4h4"/><circle cx="10" cy="15" r="3"/><path d="m14 19 2-2"/></svg>
                         </div>
                         <div style="text-align: left;">
                             <div style="font-weight: 900; font-size: 1.2rem; color: var(--doing-success);">위험성평가 결과 조회</div>
@@ -186,26 +223,16 @@
 
 
             <!-- Phase 1: User & Task Selection -->
-            <section id="step-1" class="phase">
+            <section id="step-1" class="phase-section">
                 <div class="section-header" id="step1-header">
-                    <h2>부서 선택</h2>
-                    <p>소속 부서를 선택하세요.</p>
+                    <h2>설비 분류 선택</h2>
+                    <p>점검할 설비 또는 작업 분류를 선택하세요.</p>
                 </div>
 
-                <div id="worker-input-card-wrap" style="display: none;">
-                    <div class="worker-input-card" style="padding:1.5rem 0 !important; margin-bottom:1rem !important;">
-                        <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:8px; display:block;">평가자 성명 (다중 선택 가능)</label>
-                        <div class="form-group dropdown-container" style="margin-bottom:0.75rem; display: flex; gap: 8px;">
-                            <input type="text" id="worker-input" class="ui-input" style="height:52px; flex: 1;" placeholder="평가자 성명 입력" autocomplete="off">
-                            <button type="button" id="add-worker-btn" class="btn btn-add">+ 추가</button>
-                        </div>
-                        <!-- 선택된 평가자 칩 리스트 -->
-                        <div id="selected-workers-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
-                    </div>
-                </div>
+
                 
                 <div id="selection-container" class="selection-banner-list" style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 1rem;">
-                    <!-- JS dynamic -->
+                    <!-- 설비 분류 선택 리스트 -->
                 </div>
 
                 <div class="btn-container adaptive" id="step1-home-btn" style="margin-top: 2rem;">
@@ -213,8 +240,58 @@
                 </div>
             </section>
 
+            <!-- Phase 1-2: Task Selection (New in v34.7.0) -->
+            <section id="step-tasks" class="phase-section">
+                <div class="section-header" id="step-tasks-header">
+                    <h2>작업 선택</h2>
+                    <p>진행 중인 작업을 선택해 주세요.</p>
+                </div>
+                <div id="task-selection-container" class="selection-banner-list" style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- 작업 선택 리스트 (JS dynamic) -->
+                </div>
+                <div class="btn-container">
+                    <button class="btn btn-secondary" onclick="switchPhase('step-1')">이전단계</button>
+                </div>
+            </section>
+
+            <!-- Phase 1-5: Evaluator & Reference (v35.6.8) -->
+            <section id="step-evaluators" class="phase-section">
+                <div class="section-header">
+                    <h2>평가 참여자 및 사전 정보</h2>
+                    <p>점검에 참여하는 인원을 입력하고 작업 관련 사전 정보를 확인하세요.</p>
+                </div>
+
+                <div class="worker-input-card" style="background:white; border-radius:24px; padding:1.5rem; border:1.5px solid #f1f5f9; box-shadow: var(--shadow-sm); margin-bottom: 20px;">
+                    <label class="ui-label" style="font-size:0.85rem; color:#64748b; font-weight:700; margin-bottom:12px; display:block;">평가 참여자 성명 (추가 버튼 클릭)</label>
+                    <div class="form-group" style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <input type="text" id="worker-input" class="ui-input" style="height:56px; flex: 1; border-radius:14px;" placeholder="참여자 이름 입력 (예: 홍길동)" autocomplete="off">
+                        <button type="button" class="btn btn-primary" onclick="addWorker()" style="width: 80px; height: 56px; border-radius:14px; padding:0;">+ 추가</button>
+                    </div>
+                    <!-- 선택된 평가자 칩 리스트 -->
+                    <div id="selected-workers-chips" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                </div>
+
+                <!-- 사전 정보 참고 카드 -->
+                <div id="reference-info-card" class="incident-card" style="background:#f8fafc; border:1.5px solid #e2e8f0; display:block !important;">
+                    <div class="incident-header" style="background:#f1f5f9; border-bottom:1.5px solid #e2e8f0; padding:12px 18px;">
+                        <i data-lucide="book-open" style="color:var(--doing-blue);"></i>
+                        <span style="color:#475569; font-weight:900;">작업별 사전 정보 (참고자료)</span>
+                    </div>
+                    <div id="reference-info-content" style="padding:20px; color:#1e293b;">
+                        <!-- JS Dynamic Content -->
+                        <div style="text-align:center; padding:20px; color:#94a3b8;">작업 선택 정보 불러오는 중...</div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:2rem;">
+                    <button class="btn btn-secondary" onclick="switchPhase('step-tasks')" style="height:64px; border-radius:18px; font-weight:800;">이전단계</button>
+                    <button class="btn btn-primary" onclick="goAssessment()" style="height:64px; border-radius:18px; font-weight:900;">위험성평가 시작 <i data-lucide="arrow-right"></i></button>
+                </div>
+            </section>
+
+
             <!-- Phase 2: Risk Checklist -->
-            <section id="step-2" class="phase">
+            <section id="step-2" class="phase-section">
                 <div class="section-header">
                     <h2 id="step2-title">위험 요인 및 대책 확인</h2>
                 </div>
@@ -234,7 +311,7 @@
             </section>
 
             <!-- Phase 3: Improvement & Photo -->
-            <section id="step-improvement" class="phase">
+            <section id="step-improvement" class="phase-section">
                 <div class="section-header">
                     <h2>개선 조치 및 사진</h2>
                     <p>평가가 완료되었습니다. 개선이 필요한 사항에 대해 사진과 의견을 남겨주세요.</p>
@@ -246,7 +323,7 @@
             </section>
 
             <!-- Phase 4: Digital Signature -->
-            <section id="step-4" class="phase">
+            <section id="step-4" class="phase-section">
                 <div class="section-header">
                     <h2>최종 결과 확인 및 서명</h2>
                     <p>아래 점검 결과를 최종 확인한 후 본인 서명을 완료해 주세요.</p>
@@ -404,7 +481,7 @@
             </section>
 
             <!-- Phase: Result Inquiry (New Premium Card Flow) -->
-            <section id="step-results" class="phase">
+            <section id="step-results" class="phase-section">
                 <div class="section-header">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h2>위험성평가 결과 조회</h2>
@@ -448,7 +525,7 @@
             </section>
 
             <!-- Phase: Submission History -->
-            <section id="step-history" class="phase">
+            <section id="step-history" class="phase-section">
                 <div class="section-header">
                     <h2 id="history-title">위험성평가 제출 내역</h2>
                     <p id="history-subtitle">최근 기기에서 제출된 점검 리스트입니다.</p>
@@ -471,7 +548,7 @@
             </section>
 
             <!-- Phase: TBM Check (New Module) -->
-            <section id="step-tbm" class="phase">
+            <section id="step-tbm" class="phase-section">
                 <div class="section-header">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h2>현장 TBM 점검</h2>
@@ -531,7 +608,7 @@
             </section>
 
             <!-- [v30.1] Premium Success Phase -->
-            <section id="step-success" class="phase">
+            <section id="step-success" class="phase-section">
                 <div class="success-animation-container">
                     <div class="success-checkmark">
                         <i data-lucide="check"></i>
@@ -577,6 +654,13 @@
 
         </div> <!-- .mobile-frame -->
     </div> <!-- .app-shell -->
+    <div style="position:fixed; bottom:5px; right:5px; font-size:0.5rem; color:#94a3b8; font-weight:700; pointer-events:none; z-index:9999; opacity:0.6;">SYSTEM_ACTIVE: v35.8.5</div>
+
+
+
+
+
+
 
     <!-- Global Elements -->
     <div id="toast"></div>
@@ -584,8 +668,20 @@
         <div class="loader"></div>
     </div>
 
-    <script src="app.js?v=34.4.3"></script>
-    <script src="tbm.js?v=34.0.3"></script>
+    <script src="app.js?v=35.8.5"></script>
+    <script src="tbm.js?v=35.8.5"></script>
+
+
+
+
+
+
+
+
+
+
+
+
 
 </body>
 </html>
