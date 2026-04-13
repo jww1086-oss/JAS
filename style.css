@@ -34,6 +34,8 @@ body {
     overflow-x: hidden;
     letter-spacing: -0.4px;
     font-family: 'Inter', Pretendard, sans-serif;
+    line-height: 1.5; /* [v35.8.9] 시인성 개선: 기본 줄간격 확보 */
+    word-break: keep-all; /* [v35.8.12] 시인성 개선: 한글 단어 단위 줄바꿈 강제 */
 }
 
 .app-shell { min-height: 100vh; display: flex; justify-content: center; }
@@ -45,7 +47,7 @@ body {
     /* [v26.3] GPU 부하 경감을 위해 프레임 블러 제거 (부드러운 스크롤 확보) */
     min-height: 100vh;
     position: relative;
-    padding: 0 20px 120px 20px;
+    padding: 0 0 120px 0; /* [v35.8.9] 가로 패딩 제거 (인셋 패딩 구조로 전환) */
     box-shadow: 0 0 120px rgba(15, 23, 42, 0.08);
     touch-action: pan-y;
 }
@@ -55,7 +57,7 @@ body {
     display: flex; justify-content: space-between; align-items: center;
     padding: 1.2rem 24px; margin-bottom: 0;
     position: sticky; top: 0; z-index: 1100;
-    width: calc(100% + 40px); margin: 0 -20px 0 -20px;
+    width: 100%; margin: 0; /* [v35.8.9] 쏠림 현상 해결: calc 및 마이너스 마진 제거 */
     background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px);
     border-bottom: 1.5px solid #f1f5f9;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.03), 0 4px 6px -4px rgba(0, 0, 0, 0.02);
@@ -100,11 +102,12 @@ body {
 /* Dashboard Grid */
 .phase-section {
     display: none;
+    padding: 0 20px; /* [v35.8.9] 내부 콘텐츠 여백 통합 */
 }
 .phase-section.active {
     display: block;
 }
-.main-banner { position: relative; width: calc(100% + 40px); margin: 0 -20px; height: 110px; overflow: hidden; border-radius: 0 0 32px 32px; }
+.main-banner { position: relative; width: 100%; margin: 0; height: 110px; overflow: hidden; border-radius: 0 0 32px 32px; }
 .main-banner img { width: 100%; height: 100%; object-fit: cover; }
 .banner-overlay { position: absolute; bottom: 12px; left: 24px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
 .banner-overlay h2 { font-size: 1.3rem; font-weight: 950; line-height: 1.25; }
@@ -168,7 +171,7 @@ body {
 .check-item.checked .check-indicator { background: var(--doing-blue); border-color: var(--doing-blue); }
 .check-indicator i { color: white; width: 14px; height: 14px; display: none; stroke-width: 4px; }
 .check-item.checked .check-indicator i { display: block; }
-.risk { font-weight: 900; font-size: 1.15rem; color: #1e293b; flex: 1; line-height: 1.35; word-break: keep-all; }
+.risk { font-weight: 950; font-size: 1.15rem; color: #1e293b; flex: 1; line-height: 1.5; word-break: keep-all; overflow-wrap: break-word; }
 
 .measure-container { max-height: 0; overflow: hidden; opacity: 0; transition: 0.4s; }
 .check-item.expanded .measure-container { max-height: 2000px; opacity: 1; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1.2px dashed #e2e8f0; }
@@ -386,7 +389,7 @@ body {
 .score-badge { padding: 4px 12px; border-radius: 12px; font-weight: 950; font-size: 0.85rem; display: inline-block; min-width: 36px; text-align: center; border: 1.5px solid transparent; }
 
 /* Stepper */
-.stepper-container { margin-bottom: 25px; }
+.stepper-container { margin-bottom: 25px; padding: 0 20px; }
 .step-nodes { display: flex; justify-content: space-between; margin-bottom: 15px; position: relative; }
 .step-node { display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 2; opacity: 0.4; }
 .step-node.active { opacity: 1; }
@@ -467,7 +470,7 @@ body {
     height: 80px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); 
     display: flex; justify-content: space-around; align-items: center; 
     border-top: 1.2px solid #f1f5f9;
-    position: sticky; bottom: 0; z-index: 1200; width: calc(100% + 40px); margin: 0 -20px;
+    position: sticky; bottom: 0; z-index: 1200; width: 100%; margin: 0;
 }
 .nav-item { display: flex; flex-direction: column; align-items: center; color: #94a3b8; gap: 5px; cursor: pointer; transition: 0.3s; }
 .nav-item:active { transform: scale(0.9); }
@@ -974,4 +977,10 @@ body {
 .result-banner-card:hover .rbc-arrow,
 .dept-banner-card:hover .dbc-arrow {
     transform: translateX(5px) scale(1.1);
+}
+/* [v35.8.12] Banner word-wrap optimization */
+#context-banner span {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    display: inline-block; /* 단어 뭉침 보호 */
 }

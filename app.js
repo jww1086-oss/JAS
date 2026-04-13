@@ -1,12 +1,11 @@
 /**
- * [v35.8.8-ULTIMATE_STABILITY] KOMIPO 스마트 안전 시스템 전용 엔진
+ * [v35.8.14-ULTIMATE_STABILITY] 발전소 위험성평가 전용 엔진
  * 1. 지능형 데이터 키 매핑 (부서명/작업부서 자동 탐색)
  * 2. UTF-8 무결성 및 유니코드 정규화 적용
- * 3. 드롭다운 위험도 보드 및 레드테마 Gap-Analysis 적용
- * 4. 작업단계(step_name) 연동 규격 맞춤 및 유실 방지 로직 강화
+ * 3. [v35.8.14] 브랜드 명칭 변경 (발전소 위험성평가)
  */
-window.APP_VERSION = "35.8.8";
-console.log(`%c!!! [KOMIPO] ULTIMATE POWER v35.8.8 !!!`, "color: #0ea5e9; font-weight: 900; font-size: 1.5rem;");
+window.APP_VERSION = "35.8.14";
+console.log(`%c!!! [발전소 위험성평가] v35.8.14 !!!`, "color: #0ea5e9; font-weight: 900; font-size: 1.5rem;");
 const currentState = {
     currentStep: 0,
     selectedWorkers: [],
@@ -1196,12 +1195,12 @@ function renderRiskChecklist(phase) {
     });
 
     container.innerHTML = Object.entries(groups).map(([step, items], groupIndex) => `
-        <div class="risk-group-card" style="background:white; border-radius:20px; padding:1.5rem; margin-bottom:1.5rem; border:1.5px solid #f1f5f9; box-shadow:var(--shadow-sm);">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
-                <div style="background:var(--doing-blue); color:white; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.85rem;">${groupIndex + 1}</div>
-                <h3 style="font-weight:900; color:#1e293b; font-size:1.05rem; margin:0;">${step}</h3>
+        <div class="risk-group-flat" style="margin-bottom:2.5rem;">
+            <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:15px; padding: 0 4px 12px; border-bottom: 2px solid #f1f5f9;">
+                <div style="background:var(--doing-blue); color:white; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:0.9rem; flex-shrink:0; margin-top:2px; box-shadow:0 4px 10px rgba(37,99,235,0.15);">${groupIndex + 1}</div>
+                <h3 style="font-weight:950; color:#1e293b; font-size:1.15rem; margin:0; letter-spacing:-0.5px; line-height:1.4;">${step}</h3>
             </div>
-            <div class="risk-items-wrap" style="display:grid; gap:16px;">
+            <div class="risk-items-wrap" style="display:grid; gap:4px;">
                 ${items.map(item => renderRiskItem(item)).join('')}
             </div>
         </div>
@@ -1244,31 +1243,41 @@ function renderRiskItem(item) {
     const isExpanded = currentState.expandedHazardKeys.has(hazardKey);
     const scores = getTaskRiskScore(hazardKey);
     
-    // 조치 사항 분리 (Gap-Analysis)
-    const allMeasures = smartSplit(item.현재안전조치_이행내역 || item.현재안전조치 || "");
+    // 조치 사항 분리 및 중복 필터링 (Gap-Analysis v35.8.13)
+    const rawMeasures = smartSplit(item.현재안전조치_이행내역 || item.현재안전조치 || "");
+    const hazardNormal = normalizeSearch(item.위험요인 || "");
+    
+    // 위험요인과 동일한 문구는 제외하여 시인성 확보
+    const allMeasures = rawMeasures.filter(m => normalizeSearch(m) !== hazardNormal);
+    
+    // 만약 필터링 후 아무것도 남지 않는다면 (데이터가 위험요인 하나만 적혀있던 경우) 
+    // 최소한의 조치가 보여야 하므로 필터링 전 원본을 사용하거나 기본 메시지 처리
+    const finalMeasures = allMeasures.length > 0 ? allMeasures : (rawMeasures.length > 0 ? rawMeasures : []);
+
     const uncheckedMeasures = [];
-    allMeasures.forEach((m, idx) => {
+    finalMeasures.forEach((m, idx) => {
         if (!currentState.checkedMeasures.has(`${hazardKey}_MEASURE_${idx}`)) {
             uncheckedMeasures.push({ text: m, index: idx });
         }
     });
 
     const isFullyChecked = allMeasures.length > 0 && uncheckedMeasures.length === 0;
+    const itemBorderColor = isFullyChecked ? 'var(--doing-blue)' : '#f1f5f9';
 
     return `
-        <div class="risk-item-row" id="risk-${hazardKey}" style="background:white; border-radius:24px; padding:1.25rem; border:1.5px solid ${isFullyChecked ? 'var(--doing-blue)' : '#f1f5f9'}; margin-bottom:1rem; box-shadow: var(--shadow-sm); transition:all 0.3s ease;">
-            <!-- Header -->
+        <div class="risk-item-flat" id="risk-${hazardKey}" style="padding: 1.25rem 0; border-bottom: 1.2px solid #f1f5f9; position:relative;">
+            <!-- Header (Flat) -->
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
                 <div onclick="toggleHazardExpand('${hazardKey}')" style="flex:1; cursor:pointer;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                        <span style="background:${isFullyChecked ? '#eff6ff' : '#f8fafc'}; color:${isFullyChecked ? 'var(--doing-blue)' : '#64748b'}; padding:4px 10px; border-radius:30px; font-size:0.7rem; font-weight:850; border: 1px solid ${isFullyChecked ? '#dbeafe' : '#f1f5f9'};">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <span style="color:${isFullyChecked ? 'var(--doing-blue)' : '#64748b'}; font-size:0.75rem; font-weight:900; background:${isFullyChecked ? '#eff6ff' : '#f8fafc'}; padding:2px 8px; border-radius:6px; border:1px solid ${isFullyChecked ? '#dbeafe' : '#f1f5f9'};">
                             ${isFullyChecked ? '점검완료' : '점검필요'}
                         </span>
                         <span style="color:#94a3b8; font-size:0.75rem; font-weight:800;">${item.재해유형 || "안전유형"}</span>
                     </div>
-                    <div style="font-weight:950; color:#1e293b; font-size:1.15rem; line-height:1.4;">${item.위험요인}</div>
+                    <div style="font-weight:950; color:#1e293b; font-size:1.15rem; line-height:1.45; word-break:keep-all; overflow-wrap:anywhere;">${item.위험요인}</div>
                 </div>
-                <button onclick="toggleHazardExpand('${hazardKey}')" style="background:${isExpanded ? '#f1f5f9' : 'transparent'}; border:none; width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                <button onclick="toggleHazardExpand('${hazardKey}')" style="background:${isExpanded ? '#f1f5f9' : 'transparent'}; border:none; width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-top: 4px;">
                     <i data-lucide="chevron-down" style="width:20px; color:#64748b; transform:rotate(${isExpanded ? '180deg' : '0deg'}); transition:0.3s;"></i>
                 </button>
             </div>
@@ -1280,7 +1289,7 @@ function renderRiskItem(item) {
                 <div style="margin-bottom:20px;">
                     <div style="font-size:0.8rem; color:#64748b; font-weight:850; margin-bottom:12px;">🧪 현재 안전조치 확인 (이행 체크)</div>
                     <div style="display:grid; gap:8px;">
-                        ${allMeasures.map((m, idx) => {
+                        ${finalMeasures.map((m, idx) => {
                             const isMChecked = currentState.checkedMeasures.has(`${hazardKey}_MEASURE_${idx}`);
                             return `
                                 <div onclick="toggleMeasureCheck('${hazardKey}', ${idx})" style="display:flex; align-items:center; gap:12px; padding:14px; background:${isMChecked ? '#f0f9ff' : '#f8fafc'}; border:1px solid ${isMChecked ? '#bae6fd' : '#f1f5f9'}; border-radius:16px; cursor:pointer;">
@@ -1293,19 +1302,19 @@ function renderRiskItem(item) {
                         }).join('')}
                     </div>
 
-                    <!-- 위험도 선택 (Dropdown Inline) -->
-                    <div style="margin-top:15px; background:#f8fafc; padding:12px 15px; border-radius:18px; border:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <span style="font-size:0.75rem; font-weight:900; color:#475569; white-space:nowrap;">현재 위험성</span>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                             <label style="font-size:0.75rem; color:#94a3b8; font-weight:800;">빈도</label>
-                             <select onchange="updateRiskScore('${hazardKey}', 'current', 'L', this.value)" style="border:1px solid #e2e8f0; border-radius:8px; padding:4px 8px; font-weight:800; color:#1e293b; background:white;">
+                    <!-- 위험도 선택 (Clean Inline) -->
+                    <div style="margin-top:15px; padding-top:15px; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:nowrap; overflow-x:auto;">
+                        <span style="font-size:0.75rem; font-weight:800; color:#64748b; white-space:nowrap; flex-shrink:0;">현재 위험성</span>
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap; flex-shrink:0;">
+                             <label style="font-size:0.75rem; color:#94a3b8; font-weight:700; white-space:nowrap;">빈도</label>
+                             <select onchange="updateRiskScore('${hazardKey}', 'current', 'L', this.value)" style="border:1px solid #e2e8f0; border-radius:8px; padding:4px 6px; font-weight:800; color:#1e293b; background:white; font-size:0.85rem;">
                                 ${[1,2,3,4,5].map(v => `<option value="${v}" ${scores.current.L == v ? 'selected' : ''}>${v}</option>`).join('')}
                              </select>
-                             <label style="font-size:0.75rem; color:#94a3b8; font-weight:800;">강도</label>
-                             <select onchange="updateRiskScore('${hazardKey}', 'current', 'S', this.value)" style="border:1px solid #e2e8f0; border-radius:8px; padding:4px 8px; font-weight:800; color:#1e293b; background:white;">
+                             <label style="font-size:0.75rem; color:#94a3b8; font-weight:700; white-space:nowrap; margin-left:2px;">강도</label>
+                             <select onchange="updateRiskScore('${hazardKey}', 'current', 'S', this.value)" style="border:1px solid #e2e8f0; border-radius:8px; padding:4px 6px; font-weight:800; color:#1e293b; background:white; font-size:0.85rem;">
                                 ${[1,2,3,4,5].map(v => `<option value="${v}" ${scores.current.S == v ? 'selected' : ''}>${v}</option>`).join('')}
                              </select>
-                             <span style="background:var(--doing-blue); color:white; padding:4px 10px; border-radius:8px; font-weight:900; font-size:0.9rem; min-width:45px; text-align:center;">R: ${scores.current.R}</span>
+                             <span style="color:var(--doing-blue); font-weight:950; font-size:1.05rem; min-width:35px; text-align:right; white-space:nowrap; letter-spacing:-0.5px;">R: ${scores.current.R}</span>
                         </div>
                     </div>
                 </div>
@@ -1330,19 +1339,19 @@ function renderRiskItem(item) {
                         }
                     </div>
 
-                    <!-- 개선 후 위험도 (Dropdown Inline) -->
-                    <div style="margin-top:15px; background:#f0fdf4; padding:12px 15px; border-radius:18px; border:1px solid #dcfce7; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                        <span style="font-size:0.75rem; font-weight:900; color:#166534; white-space:nowrap;">개선 후 목표</span>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                             <label style="font-size:0.75rem; color:#86efac; font-weight:800;">빈도</label>
-                             <select onchange="updateRiskScore('${hazardKey}', 'improved', 'L', this.value)" style="border:1px solid #bbf7d0; border-radius:8px; padding:4px 8px; font-weight:800; color:#166534; background:white;">
+                    <!-- 개선 후 위험도 (Clean Inline) -->
+                    <div style="margin-top:15px; padding-top:15px; border-top:1px solid #f0fdf4; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:nowrap; overflow-x:auto;">
+                        <span style="font-size:0.75rem; font-weight:800; color:#166534; white-space:nowrap; flex-shrink:0;">개선 후 목표</span>
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap; flex-shrink:0;">
+                             <label style="font-size:0.75rem; color:#86efac; font-weight:700; white-space:nowrap;">빈도</label>
+                             <select onchange="updateRiskScore('${hazardKey}', 'improved', 'L', this.value)" style="border:1px solid #bbf7d0; border-radius:8px; padding:4px 6px; font-weight:800; color:#166534; background:white; font-size:0.85rem;">
                                 ${[1,2,3,4,5].map(v => `<option value="${v}" ${scores.improved.L == v ? 'selected' : ''}>${v}</option>`).join('')}
                              </select>
-                             <label style="font-size:0.75rem; color:#86efac; font-weight:800;">강도</label>
-                             <select onchange="updateRiskScore('${hazardKey}', 'improved', 'S', this.value)" style="border:1px solid #bbf7d0; border-radius:8px; padding:4px 8px; font-weight:800; color:#166534; background:white;">
+                             <label style="font-size:0.75rem; color:#86efac; font-weight:700; white-space:nowrap; margin-left:2px;">강도</label>
+                             <select onchange="updateRiskScore('${hazardKey}', 'improved', 'S', this.value)" style="border:1px solid #bbf7d0; border-radius:8px; padding:4px 6px; font-weight:800; color:#166534; background:white; font-size:0.85rem;">
                                 ${[1,2,3,4,5].map(v => `<option value="${v}" ${scores.improved.S == v ? 'selected' : ''}>${v}</option>`).join('')}
                              </select>
-                             <span style="background:#10b981; color:white; padding:4px 10px; border-radius:8px; font-weight:900; font-size:0.9rem; min-width:45px; text-align:center;">R: ${scores.improved.R}</span>
+                             <span style="color:#10b981; font-weight:950; font-size:1.05rem; min-width:35px; text-align:right; white-space:nowrap; letter-spacing:-0.5px;">R: ${scores.improved.R}</span>
                         </div>
                     </div>
                 </div>
@@ -1671,14 +1680,14 @@ function renderImprovementPhase() {
                     const hKey = l.hash || getHash(l.위험요인 || l.작업단계);
                     const data = currentState.improvementData[hKey] || { photo: "", memo: "" };
                     return `
-                        <div class="improvement-card" style="background:white; border-radius:24px; padding:1.5rem; border:1.5px solid #f1f5f9; box-shadow: var(--shadow-sm);">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <div style="font-size:0.75rem; color:#ef4444; font-weight:900; letter-spacing:1px;">개선 증빙 #${i+1}</div>
-                                <div style="background:#fef2f2; color:#ef4444; padding:4px 10px; border-radius:8px; font-size:0.65rem; font-weight:800;">RED CHECK 필수</div>
+                        <div class="improvement-flat-item" style="padding: 1.5rem 0; border-bottom: 1.2px solid #f1f5f9;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                                <div style="font-size:0.75rem; color:#ef4444; font-weight:900; letter-spacing:1px; background:#fff1f2; padding:2px 8px; border-radius:6px; flex-shrink:0;">개선 증빙 #${i+1}</div>
+                                <div style="color:#ef4444; font-size:0.65rem; font-weight:800; text-align:right;">RED CHECK 필수</div>
                             </div>
-                            <div style="font-weight:950; color:#1e293b; font-size:1.05rem; margin-bottom:14px; line-height:1.4;">${l.위험요인}</div>
+                            <div style="font-weight:950; color:#1e293b; font-size:1.15rem; margin-bottom:18px; line-height:1.4;">${l.위험요인}</div>
                             
-                            <div onclick="handlePhotoUpload('${hKey}')" style="width:100%; height:180px; background:#f8fafc; border:2px dashed #e2e8f0; border-radius:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; position:relative; margin-bottom:15px;">
+                            <div onclick="handlePhotoUpload('${hKey}')" style="width:100%; height:200px; background:#f8fafc; border:1.8px dashed #e2e8f0; border-radius:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; position:relative; margin-bottom:15px;">
                                 ${data.photo ? 
                                     `<img src="${data.photo}" style="width:100%; height:100%; object-fit:cover;">` : 
                                     `<div style="text-align:center; color:#94a3b8;">
@@ -1700,7 +1709,7 @@ function renderImprovementPhase() {
                         리포트 결과 확인 <i data-lucide="chevron-right"></i>
                     </button>
                 </div>
-                <p style="text-align:center; font-size:0.75rem; color:#94a3b8; font-weight:700; margin-top:15px;">v35.6.8 | Strict Filtering Applied</p>
+                 <p style="text-align:center; font-size:0.75rem; color:#94a3b8; font-weight:700; margin-top:15px;">v35.8.14 | 발전소 위험성평가 시스템</p>
 
             </div>
         `;
